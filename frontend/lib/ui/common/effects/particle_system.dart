@@ -1,13 +1,13 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 
-// --- 粒子定义 (火花/碎片) ---
+// --- 粒子定义 ---
 class Particle {
   double x;
   double y;
   double velocityX;
   double velocityY;
-  double life; // 生命周期 (0.0 - 1.0)，1.0表示刚出生，0.0表示死亡
+  double life; // 1.0 (新) -> 0.0 (死)
   Color color;
   double size;
 
@@ -22,16 +22,39 @@ class Particle {
   });
 }
 
+// --- 粒子画笔 ---
+class ParticlePainter extends CustomPainter {
+  final List<Particle> particles;
+
+  ParticlePainter({required this.particles});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (var p in particles) {
+      if (p.life <= 0) continue;
+      // 根据生命周期计算透明度
+      final paint = Paint()
+        ..color = p.color.withOpacity(p.life.clamp(0.0, 1.0))
+        ..style = PaintingStyle.fill;
+
+      canvas.drawCircle(Offset(p.x, p.y), p.size * p.life, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant ParticlePainter oldDelegate) => true;
+}
+
 // --- 被切开的碎片定义 ---
 class SplitPiece {
-  Widget child; // 碎片的模样 (原来的 Widget)
+  final Widget child;
   double x;
   double y;
   double velocityX;
   double velocityY;
   double rotation;
   double rotationSpeed;
-  double opacity; // 透明度，用于渐隐消失
+  double opacity;
 
   SplitPiece({
     required this.child,
@@ -44,33 +67,12 @@ class SplitPiece {
   }) : opacity = 1.0;
 }
 
-// --- 粒子画笔 ---
-class ParticlePainter extends CustomPainter {
-  final List<Particle> particles;
-  ParticlePainter({required this.particles});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    for (var p in particles) {
-      // 根据生命周期计算透明度
-      final paint = Paint()..color = p.color.withValues(alpha: p.life);
-      // 画圆形粒子
-      canvas.drawCircle(Offset(p.x, p.y), p.size * p.life, paint);
-    }
-  }
-  @override
-  bool shouldRepaint(covariant ParticlePainter oldDelegate) => true;
-}
-
-// --- 补丁：给 Offset 类增加旋转功能 ---
+// --- 补充工具：向量旋转（供刀光/碎片使用） ---
 extension OffsetExtension on Offset {
   /// 将向量旋转 [angle] 弧度
   Offset rotate(double angle) {
-    double cosTheta = cos(angle);
-    double sinTheta = sin(angle);
-    return Offset(
-      dx * cosTheta - dy * sinTheta,
-      dx * sinTheta + dy * cosTheta,
-    );
+    final double cosTheta = cos(angle);
+    final double sinTheta = sin(angle);
+    return Offset(dx * cosTheta - dy * sinTheta, dx * sinTheta + dy * cosTheta);
   }
 }

@@ -135,3 +135,12 @@ class Thoughts extends Table {
   @override
   Set<Column> get primaryKey => {id};
 }
+
+// --- 3. 应用级设置 (Key-Value) ---
+class AppSettings extends Table {
+  TextColumn get key => text()(); // 如: 'timer_duration_seconds'
+  IntColumn get value => integer()(); // 通用存储，这里用于秒数
+
+  @override
+  Set<Column> get primaryKey => {key};
+}

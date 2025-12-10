@@ -16,13 +16,14 @@ part 'database.g.dart';
     Tasks,
     FocusSessions,
     Thoughts,
+    AppSettings,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 3; // 升级版本号
+  int get schemaVersion => 4; // 升级版本号
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -39,6 +40,9 @@ class AppDatabase extends _$AppDatabase {
         // 注意：如果是给现有表加字段 (如 Objectives.calculatedProgress)，
         // 需要使用 await m.addColumn(objectives, objectives.calculatedProgress);
         // 为了开发简便，建议直接卸载 APP 让 onCreate 重新跑
+      }
+      if (from < 4) {
+        await m.createTable(appSettings);
       }
     },
   );
@@ -160,6 +164,20 @@ class AppDatabase extends _$AppDatabase {
         resolvedAt: Value(DateTime.now().millisecondsSinceEpoch),
         isSynced: const Value(false),
       ),
+    );
+  }
+
+  // --- 应用设置：倒计时秒数 ---
+  Future<int> getTimerDurationSeconds({int defaultSeconds = 1500}) async {
+    final row = await (select(
+      appSettings,
+    )..where((t) => t.key.equals('timer_duration_seconds'))).getSingleOrNull();
+    return row?.value ?? defaultSeconds;
+  }
+
+  Future<void> setTimerDurationSeconds(int seconds) async {
+    await into(appSettings).insertOnConflictUpdate(
+      AppSetting(key: 'timer_duration_seconds', value: seconds),
     );
   }
 }

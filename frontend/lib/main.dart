@@ -3,11 +3,11 @@ import 'data/database/database.dart';
 import 'ui/screens/dashboard/dashboard_page.dart';
 
 // Global database instance
-late AppDatabase db;
+late AppDatabase db; //late
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Initialize Database
   db = AppDatabase();
 
