@@ -1,9 +1,10 @@
 import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
+import 'package:flutter/foundation.dart';
+import 'package:uuid/uuid.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
-import 'package:uuid/uuid.dart';
 import 'tables.dart';
 
 part 'database.g.dart';
@@ -16,6 +17,8 @@ part 'database.g.dart';
     Tasks,
     FocusSessions,
     Thoughts,
+    Tags,
+    TaskTags,
     AppSettings,
   ],
 )
@@ -23,7 +26,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 4; // 升级版本号
+  int get schemaVersion => 6; // 升级版本号
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -31,19 +34,8 @@ class AppDatabase extends _$AppDatabase {
       await m.createAll();
     },
     onUpgrade: (Migrator m, int from, int to) async {
-      // 开发阶段简单粗暴：如果表结构变动太大，建议在开发机上直接卸载 APP 重装
-      // 生产环境需要写详细的 addColumn 逻辑
-      if (from < 3) {
-        // 尝试创建新表 (如果是旧版升级上来)
-        await m.createTable(keyResultCheckIns);
-
-        // 注意：如果是给现有表加字段 (如 Objectives.calculatedProgress)，
-        // 需要使用 await m.addColumn(objectives, objectives.calculatedProgress);
-        // 为了开发简便，建议直接卸载 APP 让 onCreate 重新跑
-      }
-      if (from < 4) {
-        await m.createTable(appSettings);
-      }
+      // 架构变动较大，建议开发环境直接使用新的数据库文件。
+      // 如需保留历史数据，请补充迁移逻辑。
     },
   );
 
@@ -146,7 +138,7 @@ class AppDatabase extends _$AppDatabase {
   /// 获取收件箱中的念头（category='inbox'）
   Future<List<Thought>> getInboxThoughts() {
     return (select(thoughts)
-          ..where((t) => t.category.equals('inbox'))
+          ..where((t) => t.type.equals('todo'))
           ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
         .get();
   }
@@ -161,23 +153,79 @@ class AppDatabase extends _$AppDatabase {
     await (update(thoughts)..where((t) => t.id.equals(id))).write(
       ThoughtsCompanion(
         isResolved: const Value(true),
-        resolvedAt: Value(DateTime.now().millisecondsSinceEpoch),
         isSynced: const Value(false),
       ),
     );
   }
 
-  // --- 应用设置：倒计时秒数 ---
-  Future<int> getTimerDurationSeconds({int defaultSeconds = 1500}) async {
-    final row = await (select(
-      appSettings,
-    )..where((t) => t.key.equals('timer_duration_seconds'))).getSingleOrNull();
-    return row?.value ?? defaultSeconds;
+  // --- 应用设置：工作时长秒数 ---
+  Future<int?> getTimerDurationSeconds() async {
+    try {
+      final row =
+          await (select(appSettings)
+                ..where((t) => t.key.equals('timer_duration_seconds')))
+              .getSingleOrNull();
+      debugPrint(
+        '[Database] getTimerDurationSeconds: row=$row, value=${row?.value}',
+      );
+      return row?.value;
+    } catch (e, stackTrace) {
+      debugPrint('[Database] ❌ getTimerDurationSeconds 出错: $e');
+      debugPrint('[Database] 堆栈: $stackTrace');
+      return null;
+    }
   }
 
   Future<void> setTimerDurationSeconds(int seconds) async {
     await into(appSettings).insertOnConflictUpdate(
       AppSetting(key: 'timer_duration_seconds', value: seconds),
+    );
+  }
+
+  // --- 应用设置：休息时长秒数 ---
+  Future<int?> getRestDurationSeconds() async {
+    try {
+      final row = await (select(
+        appSettings,
+      )..where((t) => t.key.equals('rest_duration_seconds'))).getSingleOrNull();
+      debugPrint(
+        '[Database] getRestDurationSeconds: row=$row, value=${row?.value}',
+      );
+      return row?.value;
+    } catch (e, stackTrace) {
+      debugPrint('[Database] ❌ getRestDurationSeconds 出错: $e');
+      debugPrint('[Database] 堆栈: $stackTrace');
+      return null;
+    }
+  }
+
+  Future<void> setRestDurationSeconds(int seconds) async {
+    await into(appSettings).insertOnConflictUpdate(
+      AppSetting(key: 'rest_duration_seconds', value: seconds),
+    );
+  }
+
+  // --- 应用设置：长休息时长秒数 ---
+  Future<int?> getLongRestDurationSeconds() async {
+    try {
+      final row =
+          await (select(appSettings)
+                ..where((t) => t.key.equals('long_rest_duration_seconds')))
+              .getSingleOrNull();
+      debugPrint(
+        '[Database] getLongRestDurationSeconds: row=$row, value=${row?.value}',
+      );
+      return row?.value;
+    } catch (e, stackTrace) {
+      debugPrint('[Database] ❌ getLongRestDurationSeconds 出错: $e');
+      debugPrint('[Database] 堆栈: $stackTrace');
+      return null;
+    }
+  }
+
+  Future<void> setLongRestDurationSeconds(int seconds) async {
+    await into(appSettings).insertOnConflictUpdate(
+      AppSetting(key: 'long_rest_duration_seconds', value: seconds),
     );
   }
 }
@@ -186,7 +234,7 @@ LazyDatabase _openConnection() {
   return LazyDatabase(() async {
     final dbFolder = await getApplicationDocumentsDirectory();
     // 换了个数据库文件名，避免和旧版本冲突，保证全新的表结构生效
-    final file = File(p.join(dbFolder.path, 'awareness_v3.sqlite'));
+    final file = File(p.join(dbFolder.path, 'awareness_v6.sqlite'));
     return NativeDatabase.createInBackground(file);
   });
 }

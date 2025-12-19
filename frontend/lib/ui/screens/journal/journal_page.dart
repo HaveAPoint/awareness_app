@@ -100,7 +100,7 @@ class _JournalPageState extends State<JournalPage> {
                 await db.insertThought(ThoughtsCompanion(
                   id: drift.Value(const Uuid().v4()),
                   content: drift.Value(controller.text),
-                  category: const drift.Value('inbox'),
+                  type: const drift.Value('todo'),
                 ));
                 _refreshList();
                 if (context.mounted) Navigator.pop(context);

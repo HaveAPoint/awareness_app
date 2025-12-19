@@ -34,7 +34,7 @@ class ParticlePainter extends CustomPainter {
       if (p.life <= 0) continue;
       // 根据生命周期计算透明度
       final paint = Paint()
-        ..color = p.color.withOpacity(p.life.clamp(0.0, 1.0))
+        ..color = p.color.withValues(alpha: p.life.clamp(0.0, 1.0))
         ..style = PaintingStyle.fill;
 
       canvas.drawCircle(Offset(p.x, p.y), p.size * p.life, paint);

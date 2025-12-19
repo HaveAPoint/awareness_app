@@ -3,12 +3,14 @@ import 'package:flutter/material.dart';
 class FocusRing extends StatefulWidget {
   final double progress;
   final bool isRunning;
+  final bool isResting; // 新增：用于判断是否显示暖色渐变
   final VoidCallback onTap;
 
   const FocusRing({
     super.key,
     required this.progress,
     required this.isRunning,
+    required this.isResting, // 传入此参数
     required this.onTap,
   });
 
@@ -21,6 +23,33 @@ class FocusRingState extends State<FocusRing>
   late AnimationController _scaleController;
   late Animation<double> _scaleAnimation;
 
+  // --- 定义颜色常量 ---
+  // 1. 秋日阳光渐变 (休息中)
+  static const Gradient kAutumnSunGradient = SweepGradient(
+    colors: [
+      Color(0xFFFFD54F), // 明亮金
+      Color(0xFFFF8F00), // 醇厚琥珀
+      Color(0xFFBF360C), // 焦糖红棕
+      Color(0xFFFFD54F), // 闭环
+    ],
+    stops: [0.0, 0.4, 0.8, 1.0],
+  );
+
+  // 2. 深海专注渐变 (工作中)
+  static const Gradient kDeepFocusGradient = SweepGradient(
+    colors: [
+      Color(0xFF26C6DA), // 明亮青绿
+      Color(0xFF0277BD), // 深邃海蓝
+      Color(0xFF01579B), // 静谧午夜蓝
+      Color(0xFF26C6DA), // 闭环
+    ],
+    stops: [0.0, 0.4, 0.8, 1.0],
+  );
+
+  // 3. 高级灰 (停止/空闲)
+  static const Color kIdleColor = Color(0xFFE0E0E0);
+  // ------------------
+
   @override
   void initState() {
     super.initState();
@@ -31,7 +60,6 @@ class FocusRingState extends State<FocusRing>
       upperBound: 1.0,
     );
 
-    // 缩放幅度控制在 4% 以内，手感更紧实
     _scaleAnimation = Tween<double>(begin: 1.0, end: 0.96).animate(
       CurvedAnimation(parent: _scaleController, curve: Curves.easeOutCubic),
     );
@@ -43,7 +71,6 @@ class FocusRingState extends State<FocusRing>
     super.dispose();
   }
 
-  // 外部控制：按下
   void pressDown() {
     _scaleController.animateTo(
       1.0,
@@ -52,7 +79,6 @@ class FocusRingState extends State<FocusRing>
     );
   }
 
-  // 外部控制：抬起/回弹
   void pressUp({bool bounce = true}) {
     _scaleController.animateTo(
       0.0,
@@ -61,25 +87,21 @@ class FocusRingState extends State<FocusRing>
     );
   }
 
-  // 外部控制：取消
   void pressCancel() {
     pressUp(bounce: false);
   }
 
   @override
   Widget build(BuildContext context) {
-    // 基础尺寸
+    // 基础尺寸保持不变
     const double size = 300.0;
-    const double strokeWidth = 18.0; // 加粗圆环
+    const double strokeWidth = 18.0;
 
-    // 颜色定义 (性冷淡风)
-    final Color activeColor = widget.isRunning
-        ? const Color(0xFF64FFDA) // 经典的 Cyan Accent
-        : const Color(0xFFE0E0E0); // 停止时用高级灰
-
-    final Color inactiveColor = Colors.white.withOpacity(0.05);
-    final Color innerColorStart = const Color(0xFF202025); // 内芯渐变亮部
-    final Color innerColorEnd = const Color(0xFF15151A); // 内芯渐变暗部
+    // 内芯颜色 (保持不变)
+    final Color innerColorStart = const Color(0xFF202025);
+    final Color innerColorEnd = const Color(0xFF15151A);
+    // 轨道底色 (保持不变)
+    final Color inactiveColor = Colors.white.withValues(alpha: 0.05);
 
     return AnimatedBuilder(
       animation: _scaleController,
@@ -92,27 +114,25 @@ class FocusRingState extends State<FocusRing>
             child: Stack(
               alignment: Alignment.center,
               children: [
-                // --- 1. 内部实体按钮 (微凸起效果) ---
+                // --- 1. 内部实体按钮 (完全保持原样) ---
                 Container(
-                  width: size - strokeWidth * 2 - 10, // 稍微留点缝隙，显得更精致
+                  width: size - strokeWidth * 2 - 10,
                   height: size - strokeWidth * 2 - 10,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    // 哑光渐变：模拟微凸的曲面光感
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [innerColorStart, innerColorEnd],
                     ),
-                    // 阴影：制造悬浮感 (Shadow)
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.5),
+                        color: Colors.black.withValues(alpha: 0.5),
                         offset: const Offset(4, 4),
                         blurRadius: 10,
                       ),
                       BoxShadow(
-                        color: Colors.white.withOpacity(0.05),
+                        color: Colors.white.withValues(alpha: 0.05),
                         offset: const Offset(-2, -2),
                         blurRadius: 5,
                       ),
@@ -120,16 +140,20 @@ class FocusRingState extends State<FocusRing>
                   ),
                 ),
 
-                // --- 2. 进度圆环 (CustomPaint 绘制，以获得最佳圆角) ---
-                // 使用 RepaintBoundary 优化性能
+                // --- 2. 进度圆环 (使用 CustomPaint 支持 SweepGradient) ---
                 RepaintBoundary(
                   child: CustomPaint(
                     size: const Size(size, size),
                     painter: _RingPainter(
-                      progress: widget.progress,
+                      progress: widget.progress.clamp(0.0, 1.0),
                       strokeWidth: strokeWidth,
-                      color: activeColor,
                       backgroundColor: inactiveColor,
+                      // 颜色逻辑：如果正在运行且是休息状态 -> 使用暖色渐变，否则使用单色
+                      useWarmGradient: widget.isRunning && widget.isResting,
+                      warmGradient: kAutumnSunGradient,
+                      workGradient: kDeepFocusGradient,
+                      idleColor: kIdleColor,
+                      isRunning: widget.isRunning,
                     ),
                   ),
                 ),
@@ -145,14 +169,22 @@ class FocusRingState extends State<FocusRing>
 class _RingPainter extends CustomPainter {
   final double progress;
   final double strokeWidth;
-  final Color color;
   final Color backgroundColor;
+  final bool useWarmGradient;
+  final Gradient warmGradient;
+  final Gradient workGradient;
+  final Color idleColor;
+  final bool isRunning;
 
   _RingPainter({
     required this.progress,
     required this.strokeWidth,
-    required this.color,
     required this.backgroundColor,
+    required this.useWarmGradient,
+    required this.warmGradient,
+    required this.workGradient,
+    required this.idleColor,
+    required this.isRunning,
   });
 
   @override
@@ -169,31 +201,42 @@ class _RingPainter extends CustomPainter {
     canvas.drawCircle(center, radius, bgPaint);
 
     // 2. 画进度
-    // 定义一个渐变笔刷，让进度条本身也有点金属质感
-    final progressPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap
-          .round // 圆头
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [color, color.withOpacity(0.7)], // 微微的渐变
-      ).createShader(Rect.fromCircle(center: center, radius: radius));
+    if (progress > 0) {
+      final progressPaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.round;
 
-    // -pi/2 是为了从12点钟方向开始
-    // progress * 2 * pi 计算弧度
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      -3.14159 / 2,
-      progress * 2 * 3.14159,
-      false,
-      progressPaint,
-    );
+      // 如果使用暖色渐变（休息状态）
+      if (useWarmGradient) {
+        progressPaint.shader = warmGradient.createShader(
+          Rect.fromCircle(center: center, radius: radius),
+        );
+      } else if (isRunning) {
+        // 工作态使用深海专注渐变
+        progressPaint.shader = workGradient.createShader(
+          Rect.fromCircle(center: center, radius: radius),
+        );
+      } else {
+        // 空闲态使用单色
+        progressPaint.color = idleColor;
+      }
+
+      // 从12点钟方向开始绘制
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        -3.14159 / 2, // -90度，从12点开始
+        progress * 2 * 3.14159, // 根据进度计算弧度
+        false,
+        progressPaint,
+      );
+    }
   }
 
   @override
   bool shouldRepaint(covariant _RingPainter oldDelegate) {
-    return oldDelegate.progress != progress || oldDelegate.color != color;
+    return oldDelegate.progress != progress ||
+        oldDelegate.useWarmGradient != useWarmGradient ||
+        oldDelegate.isRunning != isRunning;
   }
 }
