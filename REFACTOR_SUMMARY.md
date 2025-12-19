@@ -34,7 +34,7 @@ lib/data/
 └─ sync/
    └─ sync_service.dart  ✅ 同步接口 (No-op)
 ```
-
+#
 #### Logic Layer (逻辑层)
 ```
 lib/logic/
