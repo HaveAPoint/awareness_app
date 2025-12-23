@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../journal/journal_page.dart';
 import '../focus/focus_page.dart';
+import '../goals/goals_page.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -15,7 +16,7 @@ class _DashboardPageState extends State<DashboardPage> {
   final List<Widget> _pages = [
     const FocusPage(),
     const JournalPage(),
-    const Center(child: Text("Goals (Coming Soon)")),
+    const GoalsPage(),
   ];
 
   @override
