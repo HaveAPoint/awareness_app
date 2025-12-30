@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-import '../../common/blade/blade_painter.dart';
+
 import '../../common/effects/particle_system.dart';
 import '../../../logic/interceptor/game_controller.dart';
 import '../../../data/database/database.dart';
@@ -87,13 +87,7 @@ class _InterceptorOverlayState extends State<InterceptorOverlay>
               ),
             ),
 
-            // Layer 3: Blade
-            CustomPaint(
-              painter: BladePainter(points: _controller.bladePoints),
-              child: Container(),
-            ),
-
-            // Layer 4: Particles
+            // Layer 3: Particles
             CustomPaint(
               painter: ParticlePainter(particles: _controller.particles),
               child: Container(),

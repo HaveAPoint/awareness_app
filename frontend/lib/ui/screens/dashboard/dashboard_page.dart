@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../journal/journal_page.dart';
 import '../focus/focus_page.dart';
-import '../goals/goals_page.dart';
+import '../goals/okr_page.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -12,7 +12,7 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   int _currentIndex = 0;
-  
+
   final List<Widget> _pages = [
     const FocusPage(),
     const JournalPage(),
@@ -31,18 +31,9 @@ class _DashboardPageState extends State<DashboardPage> {
           });
         },
         destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.timer),
-            label: '专注',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.history_edu),
-            label: '日记',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.flag),
-            label: '目标',
-          ),
+          NavigationDestination(icon: Icon(Icons.timer), label: '专注'),
+          NavigationDestination(icon: Icon(Icons.history_edu), label: '日记'),
+          NavigationDestination(icon: Icon(Icons.flag), label: '目标'),
         ],
       ),
     );

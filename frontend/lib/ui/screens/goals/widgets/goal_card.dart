@@ -21,10 +21,7 @@ class GoalCard extends StatelessWidget {
       color: Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: Colors.red, // 换成红色
-          width: 5.0, // 加粗到 5 像素
-        ),
+        side: BorderSide(color: Colors.grey.withValues(alpha: 0.1)),
       ),
       child: InkWell(
         onTap: onTap,
