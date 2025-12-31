@@ -9,7 +9,7 @@ import 'package:uuid/uuid.dart';
 
 // 引入你的项目文件
 import '../../../data/database/database.dart';
-import '../../../main.dart'; // 包含全局 db
+import '../../../main.dart'; // 包含全局 db 和 focusSessionState
 import '../../../logic/timer/focus_controller.dart'; // 刚才创建的控制器
 // 刀光已禁用，保留粒子/斩击依赖
 import '../../common/effects/particle_system.dart';
@@ -163,15 +163,17 @@ class _FocusPageState extends State<FocusPage> with TickerProviderStateMixin {
         if (snapshot.connectionState != ConnectionState.done ||
             _timerController == null) {
           return Scaffold(
-            backgroundColor: Colors.black,
-            body: const Center(
-              child: CircularProgressIndicator(color: Color(0xFF64FFDA)),
+            backgroundColor: Theme.of(context).colorScheme.surface,
+            body: Center(
+              child: CircularProgressIndicator(
+                color: Theme.of(context).colorScheme.primary,
+              ),
             ),
           );
         }
 
         return Scaffold(
-          backgroundColor: Colors.black,
+          backgroundColor: Theme.of(context).colorScheme.surface,
           // 外层捕获点击以收起输入焦点
           body: GestureDetector(
             behavior: HitTestBehavior.deferToChild,
@@ -192,7 +194,71 @@ class _FocusPageState extends State<FocusPage> with TickerProviderStateMixin {
                         // 1. 背景层
                         BreathingBackground(animation: _breathController),
 
-                        // 2. 核心内容层 (计时器 + 输入框)
+                        // 2. 右上角任务标签（关联状态）
+                        ListenableBuilder(
+                          listenable: focusSessionState,
+                          builder: (context, _) {
+                            if (!focusSessionState.hasLink) {
+                              return const SizedBox.shrink();
+                            }
+                            return SafeArea(
+                              child: Positioned(
+                                top: 16,
+                                right: 16,
+                                child: GestureDetector(
+                                  onTap: _showUnlinkDialog,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primaryContainer,
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
+                                        width: 1,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.link_rounded,
+                                          size: 14,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onPrimaryContainer,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          focusSessionState
+                                                  .linkedObjectiveTitle ??
+                                              '',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w500,
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.onPrimaryContainer,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+
+                        // 3. 核心内容层 (计时器 + 输入框)
                         Center(
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
@@ -266,22 +332,11 @@ class _FocusPageState extends State<FocusPage> with TickerProviderStateMixin {
                                                 ?.copyWith(
                                                   fontSize: 72,
                                                   fontWeight: FontWeight.w200,
-                                                  color: Colors.white,
+                                                  color: Theme.of(
+                                                    context,
+                                                  ).colorScheme.onSurface,
                                                   fontFeatures: [
                                                     const FontFeature.tabularFigures(),
-                                                  ],
-                                                  shadows: [
-                                                    BoxShadow(
-                                                      color: Colors.black
-                                                          .withValues(
-                                                            alpha: 0.3,
-                                                          ),
-                                                      blurRadius: 10,
-                                                      offset: const Offset(
-                                                        0,
-                                                        4,
-                                                      ),
-                                                    ),
                                                   ],
                                                 ),
                                           ),
@@ -316,24 +371,37 @@ class _FocusPageState extends State<FocusPage> with TickerProviderStateMixin {
                                     controller: _textController,
                                     focusNode: _inputFocus,
                                     autofocus: false,
-                                    style: const TextStyle(color: Colors.white),
-                                    cursorColor: Colors.cyanAccent,
+                                    style: TextStyle(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurface,
+                                    ),
+                                    cursorColor: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
                                     textInputAction: TextInputAction.done,
                                     onSubmitted: _handleSubmit,
-                                    decoration: const InputDecoration(
+                                    decoration: InputDecoration(
                                       hintText: "Capture Thought...",
                                       hintStyle: TextStyle(
-                                        color: Colors.white54,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurfaceVariant
+                                            .withOpacity(0.7),
                                         letterSpacing: 1.2,
                                       ),
                                       enabledBorder: UnderlineInputBorder(
                                         borderSide: BorderSide(
-                                          color: Colors.white24,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.outlineVariant,
                                         ),
                                       ),
                                       focusedBorder: UnderlineInputBorder(
                                         borderSide: BorderSide(
-                                          color: Colors.cyanAccent,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.primary,
                                         ),
                                       ),
                                     ),
@@ -618,11 +686,12 @@ class _FocusPageState extends State<FocusPage> with TickerProviderStateMixin {
 
     await showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF0F0F12),
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
+        final colorScheme = Theme.of(context).colorScheme;
         return SizedBox(
           height: 320,
           child: Column(
@@ -632,15 +701,15 @@ class _FocusPageState extends State<FocusPage> with TickerProviderStateMixin {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.white24,
+                  color: colorScheme.onSurfaceVariant.withOpacity(0.4),
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
               const SizedBox(height: 16),
               Text(
                 title,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: colorScheme.onSurface,
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                 ),
@@ -666,8 +735,8 @@ class _FocusPageState extends State<FocusPage> with TickerProviderStateMixin {
                           (i) => Center(
                             child: Text(
                               i.toString().padLeft(2, '0'),
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: colorScheme.onSurface,
                                 fontSize: 20,
                               ),
                             ),
@@ -675,9 +744,12 @@ class _FocusPageState extends State<FocusPage> with TickerProviderStateMixin {
                         ),
                       ),
                     ),
-                    const Text(
+                    Text(
                       ':',
-                      style: TextStyle(color: Colors.white, fontSize: 20),
+                      style: TextStyle(
+                        color: colorScheme.onSurface,
+                        fontSize: 20,
+                      ),
                     ),
                     // 秒
                     SizedBox(
@@ -695,8 +767,8 @@ class _FocusPageState extends State<FocusPage> with TickerProviderStateMixin {
                           (i) => Center(
                             child: Text(
                               i.toString().padLeft(2, '0'),
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: colorScheme.onSurface,
                                 fontSize: 20,
                               ),
                             ),
@@ -763,6 +835,37 @@ class _FocusPageState extends State<FocusPage> with TickerProviderStateMixin {
       HapticFeedback.selectionClick();
     }
   }
+
+  /// 显示取消关联的确认弹窗
+  Future<void> _showUnlinkDialog() async {
+    final colorScheme = Theme.of(context).colorScheme;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('确认退出关联模式？'),
+        content: const Text('退出后将重置当前番茄钟进度'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: colorScheme.error),
+            child: const Text('确认'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      // 清除关联
+      focusSessionState.clearLink();
+      // 重置番茄钟
+      _timerController?.reset();
+      HapticFeedback.mediumImpact();
+    }
+  }
 }
 
 class BreathingBackground extends StatelessWidget {
@@ -771,19 +874,25 @@ class BreathingBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return AnimatedBuilder(
       animation: animation,
       builder: (context, _) {
         final t = animation.value;
-        final opacity1 = 0.9 + 0.05 * t;
+        // 调整呼吸幅度和颜色混合
+        // 使用 primaryContainer 作为中心亮色，surface 作为边缘色
         return Container(
           decoration: BoxDecoration(
             gradient: RadialGradient(
               center: const Alignment(0, -0.2),
               radius: 1.3,
               colors: [
-                const Color(0xFF0A0A12).withValues(alpha: opacity1), // 中心亮
-                const Color(0xFF000000), // 边缘黑
+                Color.lerp(
+                  colorScheme.surface,
+                  colorScheme.primaryContainer,
+                  0.15 + 0.05 * t,
+                )!, // 中心微亮
+                colorScheme.surface, // 边缘保持背景色
               ],
             ),
           ),
@@ -837,7 +946,9 @@ class _SlashDialogOverlay extends StatelessWidget {
         child: Stack(
           children: [
             // 半透明遮罩
-            Container(color: const Color(0xFF000000).withValues(alpha: 0.8)),
+            Container(
+              color: Theme.of(context).colorScheme.scrim.withOpacity(0.6),
+            ),
 
             // 居中的被斩击物体 + 液态蓄力动画（固定尺寸）
             Center(
@@ -851,6 +962,7 @@ class _SlashDialogOverlay extends StatelessWidget {
                     animation: pulseAnimation,
                     builder: (context, _) {
                       final double t = pulseAnimation.value.clamp(0.0, 1.0);
+                      final colorScheme = Theme.of(context).colorScheme;
                       // 长按蓄力时轻微下压，完成后弹性回弹
                       final double targetScale = pulseCompleted
                           ? 1.08
@@ -869,19 +981,15 @@ class _SlashDialogOverlay extends StatelessWidget {
                             Positioned.fill(
                               child: Container(
                                 decoration: BoxDecoration(
-                                  color: const Color(
-                                    0xFFFFFFFF,
-                                  ).withValues(alpha: 0.08),
+                                  color: colorScheme.surfaceContainerHighest,
                                   borderRadius: BorderRadius.circular(20),
                                   border: Border.all(
-                                    color: Colors.cyanAccent.withValues(
-                                      alpha: 0.3,
-                                    ),
+                                    color: colorScheme.primary.withOpacity(0.3),
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.cyanAccent.withValues(
-                                        alpha: 0.1,
+                                      color: colorScheme.primary.withOpacity(
+                                        0.1,
                                       ),
                                       blurRadius: 20,
                                       spreadRadius: 2,
@@ -899,8 +1007,8 @@ class _SlashDialogOverlay extends StatelessWidget {
                                   heightFactor: t,
                                   child: Container(
                                     decoration: BoxDecoration(
-                                      color: Colors.cyanAccent.withValues(
-                                        alpha: 0.25,
+                                      color: colorScheme.primary.withOpacity(
+                                        0.25,
                                       ),
                                     ),
                                   ),
@@ -917,8 +1025,8 @@ class _SlashDialogOverlay extends StatelessWidget {
                                   child: Text(
                                     text,
                                     textAlign: TextAlign.center,
-                                    style: const TextStyle(
-                                      color: Colors.white,
+                                    style: TextStyle(
+                                      color: colorScheme.onSurface,
                                       fontSize: 18,
                                       height: 1.4,
                                       fontWeight: FontWeight.w500,

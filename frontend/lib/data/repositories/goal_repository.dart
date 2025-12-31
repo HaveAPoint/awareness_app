@@ -10,13 +10,27 @@ class GoalRepository {
 
   // --- Objective CRUD ---
 
-  /// 获取所有活跃的目标
-  Future<List<ObjectiveModel>> getAllObjectives() async {
+  /// 获取目标列表
+  /// [statusFilter] 状态筛选：'all', 'active', 'completed', 'archived'
+  Future<List<ObjectiveModel>> getAllObjectives({
+    String statusFilter = 'active',
+  }) async {
+    // 先自动检查并更新过期目标
+    await _db.autoCompleteExpiredObjectives();
+    
+    var query = _db.select(_db.objectives);
+
+    // 根据筛选条件添加 where 子句
+    if (statusFilter == 'all') {
+      // 全部 = active + completed（排除archived）
+      query = query..where((t) => t.status.isNotValue('archived'));
+    } else {
+      // 精确匹配状态
+      query = query..where((t) => t.status.equals(statusFilter));
+    }
+
     final objectives =
-        await (_db.select(_db.objectives)
-              ..where((t) => t.status.equals('active'))
-              ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
-            .get();
+        await (query..orderBy([(t) => OrderingTerm.desc(t.createdAt)])).get();
 
     final result = <ObjectiveModel>[];
 

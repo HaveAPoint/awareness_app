@@ -13,9 +13,15 @@ class DashboardPage extends StatefulWidget {
 class _DashboardPageState extends State<DashboardPage> {
   int _currentIndex = 0;
 
-  final List<Widget> _pages = [
+  void switchToFocusPage() {
+    setState(() {
+      _currentIndex = 0; // Focus 页面的索引
+    });
+  }
+
+  List<Widget> get _pages => [
     const FocusPage(),
-    const JournalPage(),
+    JournalPage(onSwitchToFocus: switchToFocusPage),
     const GoalsPage(),
   ];
 

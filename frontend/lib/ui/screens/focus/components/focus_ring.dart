@@ -23,33 +23,6 @@ class FocusRingState extends State<FocusRing>
   late AnimationController _scaleController;
   late Animation<double> _scaleAnimation;
 
-  // --- 定义颜色常量 ---
-  // 1. 秋日阳光渐变 (休息中)
-  static const Gradient kAutumnSunGradient = SweepGradient(
-    colors: [
-      Color(0xFFFFD54F), // 明亮金
-      Color(0xFFFF8F00), // 醇厚琥珀
-      Color(0xFFBF360C), // 焦糖红棕
-      Color(0xFFFFD54F), // 闭环
-    ],
-    stops: [0.0, 0.4, 0.8, 1.0],
-  );
-
-  // 2. 深海专注渐变 (工作中)
-  static const Gradient kDeepFocusGradient = SweepGradient(
-    colors: [
-      Color(0xFF26C6DA), // 明亮青绿
-      Color(0xFF0277BD), // 深邃海蓝
-      Color(0xFF01579B), // 静谧午夜蓝
-      Color(0xFF26C6DA), // 闭环
-    ],
-    stops: [0.0, 0.4, 0.8, 1.0],
-  );
-
-  // 3. 高级灰 (停止/空闲)
-  static const Color kIdleColor = Color(0xFFE0E0E0);
-  // ------------------
-
   @override
   void initState() {
     super.initState();
@@ -93,15 +66,37 @@ class FocusRingState extends State<FocusRing>
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     // 基础尺寸保持不变
     const double size = 300.0;
     const double strokeWidth = 18.0;
 
-    // 内芯颜色 (保持不变)
-    final Color innerColorStart = const Color(0xFF202025);
-    final Color innerColorEnd = const Color(0xFF15151A);
-    // 轨道底色 (保持不变)
-    final Color inactiveColor = Colors.white.withValues(alpha: 0.05);
+    // 内芯颜色
+    final Color innerColorStart = colorScheme.surfaceContainerHigh;
+    final Color innerColorEnd = colorScheme.surfaceContainer;
+    // 轨道底色
+    final Color inactiveColor = colorScheme.outlineVariant.withOpacity(0.2);
+
+    // 动态生成渐变
+    final Gradient restGradient = SweepGradient(
+      colors: [
+        colorScheme.tertiaryContainer,
+        colorScheme.tertiary,
+        colorScheme.tertiaryContainer,
+      ],
+      stops: const [0.0, 0.5, 1.0],
+    );
+
+    final Gradient workGradient = SweepGradient(
+      colors: [
+        colorScheme.primaryContainer,
+        colorScheme.primary,
+        colorScheme.primaryContainer,
+      ],
+      stops: const [0.0, 0.5, 1.0],
+    );
+
+    final Color idleColor = colorScheme.outline;
 
     return AnimatedBuilder(
       animation: _scaleController,
@@ -114,7 +109,7 @@ class FocusRingState extends State<FocusRing>
             child: Stack(
               alignment: Alignment.center,
               children: [
-                // --- 1. 内部实体按钮 (完全保持原样) ---
+                // --- 1. 内部实体按钮 ---
                 Container(
                   width: size - strokeWidth * 2 - 10,
                   height: size - strokeWidth * 2 - 10,
@@ -127,12 +122,12 @@ class FocusRingState extends State<FocusRing>
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.5),
+                        color: colorScheme.shadow.withOpacity(0.1),
                         offset: const Offset(4, 4),
                         blurRadius: 10,
                       ),
                       BoxShadow(
-                        color: Colors.white.withValues(alpha: 0.05),
+                        color: colorScheme.surface.withOpacity(0.5),
                         offset: const Offset(-2, -2),
                         blurRadius: 5,
                       ),
@@ -150,9 +145,9 @@ class FocusRingState extends State<FocusRing>
                       backgroundColor: inactiveColor,
                       // 颜色逻辑：如果正在运行且是休息状态 -> 使用暖色渐变，否则使用单色
                       useWarmGradient: widget.isRunning && widget.isResting,
-                      warmGradient: kAutumnSunGradient,
-                      workGradient: kDeepFocusGradient,
-                      idleColor: kIdleColor,
+                      warmGradient: restGradient,
+                      workGradient: workGradient,
+                      idleColor: idleColor,
                       isRunning: widget.isRunning,
                     ),
                   ),

@@ -125,6 +125,34 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
+  // --- 目标状态自动管理 ---
+
+  /// 自动将过期的active目标转为completed状态
+  /// 归档(archived)需要手动处理
+  Future<void> autoCompleteExpiredObjectives() async {
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    
+    // 查找所有已过期但仍是active状态的目标
+    final expiredObjectives = await (select(objectives)
+          ..where((t) => t.status.equals('active') & t.deadline.isSmallerThanValue(now)))
+        .get();
+    
+    if (expiredObjectives.isEmpty) return;
+    
+    // 批量更新为completed状态
+    for (final obj in expiredObjectives) {
+      await (update(objectives)..where((t) => t.id.equals(obj.id))).write(
+        ObjectivesCompanion(
+          status: const Value('completed'),
+          updatedAt: Value(DateTime.now()),
+          isSynced: const Value(false),
+        ),
+      );
+    }
+    
+    debugPrint('[Database] 自动完成 ${expiredObjectives.length} 个过期目标');
+  }
+
   // --- 基础 CRUD ---
 
   /// 获取所有未处理的活跃念头

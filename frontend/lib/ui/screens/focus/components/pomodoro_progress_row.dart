@@ -35,11 +35,12 @@ class PomodoroProgressRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20.0),
       padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 12.0),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
+        color: colorScheme.surfaceContainerHighest.withOpacity(0.5),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
@@ -48,18 +49,20 @@ class PomodoroProgressRow extends StatelessWidget {
           final stage = _cycleStructure[index];
           final bool isActive = index == currentStepIndex;
           final bool isPast = index < currentStepIndex;
-          return _buildIcon(stage, isActive, isPast, index);
+          return _buildIcon(context, stage, isActive, isPast, index);
         }),
       ),
     );
   }
 
   Widget _buildIcon(
+    BuildContext context,
     PomodoroStage stage,
     bool isActive,
     bool isPast,
     int index,
   ) {
+    final colorScheme = Theme.of(context).colorScheme;
     IconData iconData;
     switch (stage) {
       case PomodoroStage.work:
@@ -74,15 +77,13 @@ class PomodoroProgressRow extends StatelessWidget {
     }
 
     // --- 颜色与尺寸逻辑 ---
-    // 激活状态：暖金色，尺寸大
-    // 过去状态：浅琥珀色/棕色，尺寸小
-    // 未来状态：灰色，尺寸小
+    // 激活状态：Primary
+    // 过去状态：Secondary/Tertiary
+    // 未来状态：Outline
 
     final Color color = isActive
-        ? const Color(0xFFFFA000) // 秋日亮色
-        : (isPast
-              ? const Color(0xFFD7CCC8) // 过去用暖灰
-              : const Color(0xFFEEEEEE)); // 未来用冷灰
+        ? colorScheme.primary
+        : (isPast ? colorScheme.secondary : colorScheme.outlineVariant);
     final double size = isActive ? 32.0 : 20.0; // 激活时变大，形成视觉焦点
 
     final iconWidget = AnimatedContainer(

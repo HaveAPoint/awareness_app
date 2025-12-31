@@ -1,32 +1,106 @@
 import 'dart:ui'; // 用于 ImageFilter 模糊效果
 import 'package:flutter/material.dart';
+import 'package:drift/drift.dart' as drift;
+import '../../../../main.dart'; // for db
+import '../../../../data/database/database.dart';
 import 'widgets/launchpad_section.dart';
 import 'widgets/mirror_section.dart';
 import 'widgets/sediment_section.dart';
 
 class JournalPage extends StatefulWidget {
-  const JournalPage({super.key});
+  final VoidCallback? onSwitchToFocus;
+
+  const JournalPage({super.key, this.onSwitchToFocus});
 
   @override
   State<JournalPage> createState() => _JournalPageState();
 }
 
+// 定义页面状态枚举
+enum JournalState {
+  idle, // 默认状态：Top 50%, Bottom 50%
+  launchpadExpanded, // 发射台展开：Top 90%, Bottom 10%
+}
+
 class _JournalPageState extends State<JournalPage> {
   // ================== State (状态) ==================
-  bool _isExpanded = false;
+  JournalState _currentState = JournalState.idle;
 
-  void _toggleExpand() {
+  // ================== Database Logic ==================
+  Stream<List<Objective>> _objectivesStream() {
+    // Launchpad只显示进行中的目标（可以绑定番茄钟）
+    return (db.select(db.objectives)
+          ..where((t) => t.status.equals('active'))
+          ..orderBy([
+            (t) => drift.OrderingTerm(
+              expression: t.createdAt,
+              mode: drift.OrderingMode.desc,
+            ),
+          ]))
+        .watch();
+  }
+
+  Future<void> _handleObjectiveToggle(
+    Objective objective,
+    bool isCompleted,
+  ) async {
+    final newStatus = isCompleted ? 'completed' : 'active';
+    await (db.update(
+      db.objectives,
+    )..where((t) => t.id.equals(objective.id))).write(
+      ObjectivesCompanion(
+        status: drift.Value(newStatus),
+        updatedAt: drift.Value(DateTime.now()),
+        isSynced: const drift.Value(false),
+      ),
+    );
+  }
+
+  void _toggleLaunchpad() {
     setState(() {
-      _isExpanded = !_isExpanded;
+      if (_currentState == JournalState.launchpadExpanded) {
+        _currentState = JournalState.idle;
+      } else {
+        _currentState = JournalState.launchpadExpanded;
+      }
     });
   }
 
-  void _collapseIfExpanded() {
-    if (_isExpanded) {
+  void _resetState() {
+    if (_currentState != JournalState.idle) {
       setState(() {
-        _isExpanded = false;
+        _currentState = JournalState.idle;
       });
     }
+  }
+
+  void _showMirrorDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: EdgeInsets.symmetric(
+          horizontal: MediaQuery.of(context).size.width * 0.1,
+          vertical: MediaQuery.of(context).size.height * 0.1,
+        ),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: const [
+              BoxShadow(
+                blurRadius: 30,
+                color: Colors.black26,
+                spreadRadius: 0,
+                offset: Offset(0, 10),
+              ),
+            ],
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: const MirrorSection(),
+        ),
+      ),
+    );
   }
 
   // ================== UI Rendering (渲染逻辑) ==================
@@ -37,76 +111,81 @@ class _JournalPageState extends State<JournalPage> {
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            // 获取当前的屏幕可用宽度和高度
-            // 类似于 C++ GUI 中的 GetClientRect()
             final fullWidth = constraints.maxWidth;
             final safeHeight = constraints.maxHeight;
 
-            return Column(
-              // 保持默认的 center，允许子组件自定义宽度
+            // 根据状态计算各部分高度比例
+            double topHeightRatio;
+            double bottomHeightRatio;
+
+            switch (_currentState) {
+              case JournalState.idle:
+                topHeightRatio = 0.382;
+                bottomHeightRatio = 0.618;
+                break;
+              case JournalState.launchpadExpanded:
+                topHeightRatio = 0.90;
+                bottomHeightRatio = 0.10;
+                break;
+            }
+
+            return Stack(
               children: [
-                // ------------------------------------------------
-                // 1. 顶部区域 (Top Section)
-                // ------------------------------------------------
-                // 我们希望顶部始终占满屏幕宽度，所以显式设置为 fullWidth
-                SizedBox(
-                  width: fullWidth,
-                  child: _buildShrinkableSection(
-                    // 展开时高度 10%，收起时 45%
-                    height: _isExpanded ? safeHeight * 0.1 : safeHeight * 0.45,
-                    child: const LaunchpadSection(),
-                    onTap: _collapseIfExpanded,
-                  ),
-                ),
-
-                // ------------------------------------------------
-                // 2. 中间区域 (Middle Section - The Card)
-                // ------------------------------------------------
-                GestureDetector(
-                  onTap: _toggleExpand,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.fastOutSlowIn, // 物理感更强的曲线
-                    // 展开时：宽度为屏幕的 90% (0.9)，配合 Column 的居中，形成悬浮效果
-                    // 收起时：宽度为屏幕的 100% (1.0)，占满整行
-                    width: _isExpanded ? fullWidth * 0.9 : fullWidth,
-                    height: _isExpanded ? safeHeight * 0.8 : safeHeight * 0.1,
-
-                    // 仅保留垂直间距，不需要水平 margin，因为宽度已经通过 width 控制了
-                    margin: EdgeInsets.symmetric(
-                      vertical: _isExpanded ? 16 : 0,
+                Column(
+                  children: [
+                    // ------------------------------------------------
+                    // 1. 顶部区域 (Launchpad Section)
+                    // ------------------------------------------------
+                    SizedBox(
+                      width: fullWidth,
+                      child: _buildSectionContainer(
+                        height: safeHeight * topHeightRatio,
+                        isExpanded: _currentState == JournalState.launchpadExpanded,
+                        isBlurred: false,
+                        onTap: _toggleLaunchpad,
+                        child: StreamBuilder<List<Objective>>(
+                          stream: _objectivesStream(),
+                          builder: (context, snapshot) {
+                            final objectives = snapshot.data ?? [];
+                            return LaunchpadSection(
+                              objectives: objectives,
+                              onObjectiveToggle: _handleObjectiveToggle,
+                              onSwitchToFocus: widget.onSwitchToFocus,
+                            );
+                          },
+                        ),
+                      ),
                     ),
 
-                    decoration: BoxDecoration(
+                    // ------------------------------------------------
+                    // 2. 底部区域 (Sediment Section)
+                    // ------------------------------------------------
+                    SizedBox(
+                      width: fullWidth,
+                      child: _buildSectionContainer(
+                        height: safeHeight * bottomHeightRatio,
+                        isExpanded: false,
+                        isBlurred: _currentState != JournalState.idle,
+                        onTap: _resetState,
+                        child: const SedimentSection(),
+                      ),
+                    ),
+                  ],
+                ),
+                
+                // ------------------------------------------------
+                // 3. 右下角悬浮按钮 (Mirror 入口)
+                // ------------------------------------------------
+                Positioned(
+                  right: 16,
+                  bottom: 16,
+                  child: FloatingActionButton(
+                    onPressed: _showMirrorDialog,
+                    backgroundColor: Colors.blue,
+                    child: const Icon(
+                      Icons.remove_red_eye,
                       color: Colors.white,
-                      // 展开时显示圆角，收起时直角
-                      borderRadius: BorderRadius.circular(_isExpanded ? 24 : 0),
-                      boxShadow: _isExpanded
-                          ? [
-                              const BoxShadow(
-                                blurRadius: 30, // 阴影模糊度
-                                color: Colors.black26, // 阴影颜色
-                                spreadRadius: 0,
-                                offset: Offset(0, 10), // 阴影向下偏移
-                              ),
-                            ]
-                          : [],
                     ),
-                    clipBehavior: Clip.antiAlias, // 抗锯齿裁剪，保证圆角平滑
-                    child: const MirrorSection(),
-                  ),
-                ),
-
-                // ------------------------------------------------
-                // 3. 底部区域 (Bottom Section)
-                // ------------------------------------------------
-                // 底部同样显式占满宽度
-                SizedBox(
-                  width: fullWidth,
-                  child: _buildShrinkableSection(
-                    height: _isExpanded ? safeHeight * 0.1 : safeHeight * 0.45,
-                    child: const SedimentSection(),
-                    onTap: _collapseIfExpanded,
                   ),
                 ),
               ],
@@ -117,17 +196,15 @@ class _JournalPageState extends State<JournalPage> {
     );
   }
 
-  /// 通用构建函数：处理顶部和底部的收缩、模糊逻辑
-  /// [height] : 目标高度
-  /// [child]  : 内容组件
-  /// [onTap]  : 点击回调
-  Widget _buildShrinkableSection({
+  /// 通用构建函数：处理简单的拉伸和模糊逻辑 (无卡片浮动特效)
+  Widget _buildSectionContainer({
     required double height,
+    required bool isExpanded,
+    required bool isBlurred,
     required Widget child,
     required VoidCallback onTap,
   }) {
-    // 模糊参数：展开时模糊半径为 10，收起时为 0
-    final double blurSigma = _isExpanded ? 10.0 : 0.0;
+    final double blurSigma = isBlurred ? 10.0 : 0.0;
 
     return GestureDetector(
       onTap: onTap,
@@ -135,14 +212,13 @@ class _JournalPageState extends State<JournalPage> {
         duration: const Duration(milliseconds: 300),
         curve: Curves.fastOutSlowIn,
         height: height,
-        clipBehavior: Clip.hardEdge, // 必须裁剪，否则内容可能溢出
-        decoration: const BoxDecoration(), // 提供空的 decoration 以支持 clip
-        // 模糊层级：ImageFiltered (模糊) -> AnimatedOpacity (透明度) -> Child
+        clipBehavior: Clip.hardEdge,
+        decoration: const BoxDecoration(),
         child: ImageFiltered(
           imageFilter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
           child: AnimatedOpacity(
             duration: const Duration(milliseconds: 200),
-            opacity: _isExpanded ? 0.5 : 1.0, // 展开时变半透明
+            opacity: isBlurred ? 0.5 : 1.0,
             child: child,
           ),
         ),

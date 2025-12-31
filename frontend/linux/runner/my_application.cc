@@ -52,7 +52,8 @@ static void my_application_activate(GApplication* application) {
     gtk_window_set_title(window, "frontend");
   }
 
-  gtk_window_set_default_size(window, 1280, 720);
+  // 设置默认窗口大小为 450x900 (9:18 比例，模拟手机竖屏体验)
+  gtk_window_set_default_size(window, 450, 900);
 
   g_autoptr(FlDartProject) project = fl_dart_project_new();
   fl_dart_project_set_dart_entrypoint_arguments(

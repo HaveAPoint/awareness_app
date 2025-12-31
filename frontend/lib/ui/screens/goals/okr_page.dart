@@ -16,6 +16,8 @@ class _GoalsPageState extends State<GoalsPage> {
   late final GoalRepository _repository;
   List<ObjectiveModel> _objectives = [];
   bool _isLoading = true;
+  String _currentFilter =
+      'active'; // 当前筛选状态：'all', 'active', 'completed', 'archived'
 
   @override
   void initState() {
@@ -27,7 +29,9 @@ class _GoalsPageState extends State<GoalsPage> {
   Future<void> _loadObjectives() async {
     setState(() => _isLoading = true);
     try {
-      final objectives = await _repository.getAllObjectives();
+      final objectives = await _repository.getAllObjectives(
+        statusFilter: _currentFilter,
+      );
       setState(() {
         _objectives = objectives;
         _isLoading = false;
@@ -61,9 +65,23 @@ class _GoalsPageState extends State<GoalsPage> {
           ),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.filter_list, color: Colors.black54),
-            onPressed: () {},
+          PopupMenuButton<String>(
+            icon: Icon(
+              Icons.filter_list,
+              color: _currentFilter == 'active' ? Colors.black54 : Colors.blue,
+            ),
+            onSelected: (String value) {
+              setState(() {
+                _currentFilter = value;
+              });
+              _loadObjectives();
+            },
+            itemBuilder: (BuildContext context) => [
+              _buildFilterMenuItem('all', '全部'),
+              _buildFilterMenuItem('active', '进行中'),
+              _buildFilterMenuItem('completed', '已结束'),
+              _buildFilterMenuItem('archived', '已归档'),
+            ],
           ),
           const SizedBox(width: 16),
         ],
@@ -124,6 +142,30 @@ class _GoalsPageState extends State<GoalsPage> {
             }
           }
         },
+      ),
+    );
+  }
+
+  PopupMenuItem<String> _buildFilterMenuItem(String value, String label) {
+    final isSelected = _currentFilter == value;
+    return PopupMenuItem<String>(
+      value: value,
+      child: Row(
+        children: [
+          Icon(
+            isSelected ? Icons.check_circle : Icons.circle_outlined,
+            size: 20,
+            color: isSelected ? Colors.blue : Colors.grey,
+          ),
+          const SizedBox(width: 12),
+          Text(
+            label,
+            style: TextStyle(
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              color: isSelected ? Colors.blue : Colors.black87,
+            ),
+          ),
+        ],
       ),
     );
   }

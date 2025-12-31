@@ -1,15 +1,22 @@
 import 'package:flutter/material.dart';
 import 'data/database/database.dart';
+import 'logic/focus_session_state.dart';
 import 'ui/screens/dashboard/dashboard_page.dart';
 
 // Global database instance
-late AppDatabase db; //late
+late AppDatabase db;
+
+// Global focus session state
+late FocusSessionState focusSessionState;
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Initialize Database
   db = AppDatabase();
+  
+  // Initialize Focus Session State
+  focusSessionState = FocusSessionState();
 
   runApp(const MyApp());
 }
@@ -25,7 +32,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: Colors.deepPurple,
-          brightness: Brightness.dark,
+          brightness: Brightness.light,
         ),
         useMaterial3: true,
       ),

@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import '../../main.dart'; // for focusSessionState
+
 // 1. 扩展状态定义
 enum FocusStatus {
   idle, // 工作-空闲
@@ -67,11 +69,11 @@ class FocusController extends ChangeNotifier {
   Future<void> _initializeCycleCount() async {
     if (_isInitialized) return;
     _persistedCycleCount = 0;
-      _currentCycleStep = 0; // 每次启动时重置当前会话的循环步骤
-      _isInitialized = true;
-      debugPrint(
-        '[FocusController] 循环计数初始化: 持久化计数=$_persistedCycleCount, 当前会话步骤=$_currentCycleStep',
-      );
+    _currentCycleStep = 0; // 每次启动时重置当前会话的循环步骤
+    _isInitialized = true;
+    debugPrint(
+      '[FocusController] 循环计数初始化: 持久化计数=$_persistedCycleCount, 当前会话步骤=$_currentCycleStep',
+    );
   }
 
   /// 处理工作完成后的循环状态更新
@@ -493,6 +495,27 @@ class FocusController extends ChangeNotifier {
     _persistedCycleCount = 0;
     _currentCycleStep = 0;
     debugPrint('[FocusController] 长休息完成，循环计数已重置');
+
+    // 清除 Objective 关联（导入在文件顶部）
+    // 注意：需要在文件顶部添加: import '../../main.dart';
+    try {
+      // 使用 dynamic import 避免循环依赖
+      final sessionState = focusSessionState;
+      sessionState.clearLink();
+    } catch (e) {
+      debugPrint('[FocusController] 清除关联失败: $e');
+    }
+  }
+
+  /// 重置计时器到初始状态
+  void reset() {
+    _stopTimer();
+    _status = FocusStatus.idle;
+    _currentSeconds = _workDuration;
+    _targetSeconds = _workDuration;
+    _currentCycleStep = 0;
+    debugPrint('[FocusController] 已重置计时器');
+    notifyListeners();
   }
 
   // 内部辅助：销毁定时器
