@@ -140,7 +140,8 @@ class _JournalPageState extends State<JournalPage> {
                       width: fullWidth,
                       child: _buildSectionContainer(
                         height: safeHeight * topHeightRatio,
-                        isExpanded: _currentState == JournalState.launchpadExpanded,
+                        isExpanded:
+                            _currentState == JournalState.launchpadExpanded,
                         isBlurred: false,
                         onTap: _toggleLaunchpad,
                         child: StreamBuilder<List<Objective>>(
@@ -172,7 +173,7 @@ class _JournalPageState extends State<JournalPage> {
                     ),
                   ],
                 ),
-                
+
                 // ------------------------------------------------
                 // 3. 右下角悬浮按钮 (Mirror 入口)
                 // ------------------------------------------------
