@@ -120,8 +120,8 @@ class _JournalPageState extends State<JournalPage> {
 
             switch (_currentState) {
               case JournalState.idle:
-                topHeightRatio = 0.382;
-                bottomHeightRatio = 0.618;
+                topHeightRatio = 0.44;  
+                bottomHeightRatio = 0.56;
                 break;
               case JournalState.launchpadExpanded:
                 topHeightRatio = 0.90;
@@ -138,23 +138,17 @@ class _JournalPageState extends State<JournalPage> {
                     // ------------------------------------------------
                     SizedBox(
                       width: fullWidth,
-                      child: _buildSectionContainer(
-                        height: safeHeight * topHeightRatio,
-                        isExpanded:
-                            _currentState == JournalState.launchpadExpanded,
-                        isBlurred: false,
-                        onTap: _toggleLaunchpad,
-                        child: StreamBuilder<List<Objective>>(
-                          stream: _objectivesStream(),
-                          builder: (context, snapshot) {
-                            final objectives = snapshot.data ?? [];
-                            return LaunchpadSection(
-                              objectives: objectives,
-                              onObjectiveToggle: _handleObjectiveToggle,
-                              onSwitchToFocus: widget.onSwitchToFocus,
-                            );
-                          },
-                        ),
+                      height: safeHeight * topHeightRatio,
+                      child: StreamBuilder<List<Objective>>(
+                        stream: _objectivesStream(),
+                        builder: (context, snapshot) {
+                          final objectives = snapshot.data ?? [];
+                          return LaunchpadSection(
+                            objectives: objectives,
+                            onObjectiveToggle: _handleObjectiveToggle,
+                            onSwitchToFocus: widget.onSwitchToFocus,
+                          );
+                        },
                       ),
                     ),
 

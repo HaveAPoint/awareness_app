@@ -36,9 +36,19 @@ class _LaunchpadSectionState extends State<LaunchpadSection> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
-      // 移除硬编码颜色，使用透明或主题色
-      color: Colors.transparent,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -62,7 +72,7 @@ class _LaunchpadSectionState extends State<LaunchpadSection> {
             ],
           ),
           const SizedBox(height: 16),
-          // 目标列表
+          // 目标列表 - 自适应剩余空间，可滚动查看所有目标
           Expanded(
             child: widget.objectives.isEmpty
                 ? Center(
@@ -90,7 +100,6 @@ class _LaunchpadSectionState extends State<LaunchpadSection> {
   Widget _buildObjectiveItem(BuildContext context, Objective objective) {
     final colorScheme = Theme.of(context).colorScheme;
     final isCompleted = objective.status == 'completed';
-    final isArchived = objective.status == 'archived';
     final canBind = objective.status == 'active'; // 只有active状态可以绑定
     final progress = objective.calculatedProgress; // 0.0 - 100.0 (数据库存储的是百分比)
     final isLongPressing = _longPressingId == objective.id;
