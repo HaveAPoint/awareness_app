@@ -51,14 +51,14 @@ class ChronosDial extends StatelessWidget {
               boxShadow: [
                 // 主投影
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
+                  color: Colors.black.withValues(alpha: 0.08),
                   blurRadius: 25,
                   spreadRadius: 3,
                   offset: const Offset(0, 6),
                 ),
                 // 次投影（更扩散）
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
+                  color: Colors.black.withValues(alpha: 0.04),
                   blurRadius: 40,
                   spreadRadius: 8,
                   offset: const Offset(0, 2),
@@ -185,23 +185,41 @@ class _ChronosDialPainter extends CustomPainter {
     double strokeWidth,
     double startAngleOffset,
   ) {
+    const double gapAngle = 0.01; // 约 0.57 度的间隙
+    const double minSweepAngle = 0.02; // 最小有效角度（避免 Gradient.sweep 断言错误）
+
     for (var i = 0; i < sessions.length; i++) {
       final session = sessions[i];
+
+      // 跳过无效的会话（时长为0或负数）
+      if (session.durationMinutes <= 0) continue;
+
       final startAngle = _timeToAngle(session.startTime) + startAngleOffset;
 
       // 计算弧段角度，留出微小间隙
       final rawSweepAngle = (session.durationMinutes / totalMinutes) * 2 * math.pi;
-      final gapAngle = 0.01; // 约 0.57 度的间隙
       final sweepAngle = rawSweepAngle - gapAngle;
+
+      // 如果角度太小，跳过渐变绘制（避免 SweepGradient 断言错误）
+      if (sweepAngle < minSweepAngle) {
+        // 对于非常短的会话，使用简单的纯色弧线
+        final sessionPaint = Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = strokeWidth - 4
+          ..strokeCap = StrokeCap.round
+          ..color = session.color;
+        canvas.drawArc(rect, startAngle, math.max(sweepAngle, 0.005), false, sessionPaint);
+        continue;
+      }
 
       // 使用渐变增加光泽感（从浅到深再到浅）
       final gradient = SweepGradient(
         startAngle: startAngle,
         endAngle: startAngle + sweepAngle,
         colors: [
-          session.color.withOpacity(0.7), // 起点：较浅
+          session.color.withValues(alpha: 0.7), // 起点：较浅
           session.color, // 中间：实色（最亮）
-          session.color.withOpacity(0.85), // 终点：稍浅
+          session.color.withValues(alpha: 0.85), // 终点：稍浅
         ],
         stops: const [0.0, 0.5, 1.0],
         tileMode: TileMode.clamp,

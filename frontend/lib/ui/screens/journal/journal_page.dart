@@ -1,12 +1,11 @@
-import 'dart:ui'; // 用于 ImageFilter 模糊效果
 import 'package:flutter/material.dart';
-import 'package:drift/drift.dart' as drift;
-import '../../../../main.dart'; // for db
-import '../../../../data/database/database.dart';
-import 'widgets/launchpad_section.dart';
+import '../../../main.dart';
+import '../../../data/database/database.dart';
 import 'widgets/mirror_section.dart';
-import 'widgets/sediment_section.dart';
+import 'widgets/pending_session_card.dart';
+import 'widgets/pending_thought_card.dart';
 
+/// 日记页面 - 待处理事项整合视图
 class JournalPage extends StatefulWidget {
   final VoidCallback? onSwitchToFocus;
 
@@ -16,64 +15,7 @@ class JournalPage extends StatefulWidget {
   State<JournalPage> createState() => _JournalPageState();
 }
 
-// 定义页面状态枚举
-enum JournalState {
-  idle, // 默认状态：Top 50%, Bottom 50%
-  launchpadExpanded, // 发射台展开：Top 90%, Bottom 10%
-}
-
 class _JournalPageState extends State<JournalPage> {
-  // ================== State (状态) ==================
-  JournalState _currentState = JournalState.idle;
-
-  // ================== Database Logic ==================
-  Stream<List<Objective>> _objectivesStream() {
-    // Launchpad只显示进行中的目标（可以绑定番茄钟）
-    return (db.select(db.objectives)
-          ..where((t) => t.status.equals('active'))
-          ..orderBy([
-            (t) => drift.OrderingTerm(
-              expression: t.createdAt,
-              mode: drift.OrderingMode.desc,
-            ),
-          ]))
-        .watch();
-  }
-
-  Future<void> _handleObjectiveToggle(
-    Objective objective,
-    bool isCompleted,
-  ) async {
-    final newStatus = isCompleted ? 'completed' : 'active';
-    await (db.update(
-      db.objectives,
-    )..where((t) => t.id.equals(objective.id))).write(
-      ObjectivesCompanion(
-        status: drift.Value(newStatus),
-        updatedAt: drift.Value(DateTime.now()),
-        isSynced: const drift.Value(false),
-      ),
-    );
-  }
-
-  void _toggleLaunchpad() {
-    setState(() {
-      if (_currentState == JournalState.launchpadExpanded) {
-        _currentState = JournalState.idle;
-      } else {
-        _currentState = JournalState.launchpadExpanded;
-      }
-    });
-  }
-
-  void _resetState() {
-    if (_currentState != JournalState.idle) {
-      setState(() {
-        _currentState = JournalState.idle;
-      });
-    }
-  }
-
   void _showMirrorDialog() {
     showDialog(
       context: context,
@@ -91,7 +33,6 @@ class _JournalPageState extends State<JournalPage> {
               BoxShadow(
                 blurRadius: 30,
                 color: Colors.black26,
-                spreadRadius: 0,
                 offset: Offset(0, 10),
               ),
             ],
@@ -103,119 +44,254 @@ class _JournalPageState extends State<JournalPage> {
     );
   }
 
-  // ================== UI Rendering (渲染逻辑) ==================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100], // 背景色，防止模糊时透视出黑色
+      backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final fullWidth = constraints.maxWidth;
-            final safeHeight = constraints.maxHeight;
+        child: Stack(
+          children: [
+            // 主内容 - 使用StreamBuilder实时监听
+            StreamBuilder<List<FocusSession>>(
+              stream: db.watchPendingReviewSessions(),
+              builder: (context, sessionsSnapshot) {
+                return StreamBuilder<List<Thought>>(
+                  stream: db.watchActiveThoughts(),
+                  builder: (context, thoughtsSnapshot) {
+                    final sessions = sessionsSnapshot.data ?? [];
+                    final thoughts = thoughtsSnapshot.data ?? [];
+                    final isLoading = !sessionsSnapshot.hasData || !thoughtsSnapshot.hasData;
+                    final totalPending = sessions.length + thoughts.length;
 
-            // 根据状态计算各部分高度比例
-            double topHeightRatio;
-            double bottomHeightRatio;
+                    return CustomScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      slivers: [
+                        // 顶部标题
+                        SliverToBoxAdapter(
+                          child: _buildHeader(totalPending),
+                        ),
 
-            switch (_currentState) {
-              case JournalState.idle:
-                topHeightRatio = 0.44;  
-                bottomHeightRatio = 0.56;
-                break;
-              case JournalState.launchpadExpanded:
-                topHeightRatio = 0.90;
-                bottomHeightRatio = 0.10;
-                break;
-            }
+                        if (isLoading)
+                          const SliverFillRemaining(
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                color: Color(0xFF6366F1),
+                              ),
+                            ),
+                          )
+                        else if (totalPending == 0)
+                          SliverFillRemaining(
+                            child: _buildEmptyState(),
+                          )
+                        else
+                          SliverPadding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            sliver: SliverList(
+                              delegate: SliverChildListDelegate([
+                                // 待确认番茄钟
+                                if (sessions.isNotEmpty) ...[
+                                  _buildSectionHeader(
+                                    icon: Icons.timer_outlined,
+                                    title: '待确认',
+                                    count: sessions.length,
+                                    color: const Color(0xFFF6AD55),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  ...sessions.map((s) => PendingSessionCard(session: s)),
+                                  const SizedBox(height: 24),
+                                ],
 
-            return Stack(
-              children: [
-                Column(
-                  children: [
-                    // ------------------------------------------------
-                    // 1. 顶部区域 (Launchpad Section)
-                    // ------------------------------------------------
-                    SizedBox(
-                      width: fullWidth,
-                      height: safeHeight * topHeightRatio,
-                      child: StreamBuilder<List<Objective>>(
-                        stream: _objectivesStream(),
-                        builder: (context, snapshot) {
-                          final objectives = snapshot.data ?? [];
-                          return LaunchpadSection(
-                            objectives: objectives,
-                            onObjectiveToggle: _handleObjectiveToggle,
-                            onSwitchToFocus: widget.onSwitchToFocus,
-                          );
-                        },
-                      ),
-                    ),
+                                // 待处理念头
+                                if (thoughts.isNotEmpty) ...[
+                                  _buildSectionHeader(
+                                    icon: Icons.lightbulb_outline,
+                                    title: '念头',
+                                    count: thoughts.length,
+                                    color: const Color(0xFF9F7AEA),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  ...thoughts.map((t) => PendingThoughtCard(thought: t)),
+                                ],
 
-                    // ------------------------------------------------
-                    // 2. 底部区域 (Sediment Section)
-                    // ------------------------------------------------
-                    SizedBox(
-                      width: fullWidth,
-                      child: _buildSectionContainer(
-                        height: safeHeight * bottomHeightRatio,
-                        isExpanded: false,
-                        isBlurred: _currentState != JournalState.idle,
-                        onTap: _resetState,
-                        child: const SedimentSection(),
-                      ),
-                    ),
-                  ],
-                ),
+                                const SizedBox(height: 100),
+                              ]),
+                            ),
+                          ),
+                      ],
+                    );
+                  },
+                );
+              },
+            ),
 
-                // ------------------------------------------------
-                // 3. 右下角悬浮按钮 (Mirror 入口)
-                // ------------------------------------------------
-                Positioned(
-                  right: 16,
-                  bottom: 16,
-                  child: FloatingActionButton(
-                    onPressed: _showMirrorDialog,
-                    backgroundColor: Colors.blue,
-                    child: const Icon(
-                      Icons.remove_red_eye,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ],
-            );
-          },
+            // 小眼睛按钮
+            Positioned(
+              right: 20,
+              bottom: 20,
+              child: _buildGlassFab(
+                icon: Icons.remove_red_eye_outlined,
+                onPressed: _showMirrorDialog,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  /// 通用构建函数：处理简单的拉伸和模糊逻辑 (无卡片浮动特效)
-  Widget _buildSectionContainer({
-    required double height,
-    required bool isExpanded,
-    required bool isBlurred,
-    required Widget child,
-    required VoidCallback onTap,
-  }) {
-    final double blurSigma = isBlurred ? 10.0 : 0.0;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.fastOutSlowIn,
-        height: height,
-        clipBehavior: Clip.hardEdge,
-        decoration: const BoxDecoration(),
-        child: ImageFiltered(
-          imageFilter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
-          child: AnimatedOpacity(
-            duration: const Duration(milliseconds: 200),
-            opacity: isBlurred ? 0.5 : 1.0,
-            child: child,
+  Widget _buildHeader(int totalPending) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+              ),
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF6366F1).withValues(alpha: 0.3),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: const Icon(Icons.inbox_rounded, color: Colors.white, size: 24),
           ),
+          const SizedBox(width: 14),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '待处理',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1E293B),
+                ),
+              ),
+              Text(
+                totalPending > 0 ? '$totalPending 项' : '一切就绪',
+                style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader({
+    required IconData icon,
+    required String title,
+    required int count,
+    required Color color,
+  }) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, size: 16, color: color),
+        ),
+        const SizedBox(width: 10),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF334155),
+          ),
+        ),
+        const Spacer(),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            '$count',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: color),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEEF2FF),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF6366F1).withValues(alpha: 0.1),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.check_circle_outline,
+              size: 48,
+              color: Color(0xFF6366F1),
+            ),
+          ),
+          const SizedBox(height: 24),
+          const Text(
+            '没有待处理事项',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF334155),
+            ),
+          ),
+          const SizedBox(height: 80),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGlassFab({
+    required IconData icon,
+    required VoidCallback onPressed,
+  }) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Container(
+        width: 56,
+        height: 56,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: const Color(0xFFEEF2FF).withValues(alpha: 0.95),
+          border: Border.all(
+            color: const Color(0xFF6366F1).withValues(alpha: 0.2),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF6366F1).withValues(alpha: 0.2),
+              blurRadius: 20,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: const Icon(
+          Icons.remove_red_eye_outlined,
+          color: Color(0xFF6366F1),
+          size: 26,
         ),
       ),
     );

@@ -14,6 +14,7 @@ import '../../../logic/timer/focus_controller.dart'; // 刚才创建的控制器
 // 刀光已禁用，保留粒子/斩击依赖
 import '../../common/effects/particle_system.dart';
 import '../../common/effects/slashed_field.dart';
+import '../../common/widgets/dot_label.dart';
 import 'components/focus_ring.dart';
 import 'components/pomodoro_progress_row.dart';
 
@@ -194,70 +195,6 @@ class _FocusPageState extends State<FocusPage> with TickerProviderStateMixin {
                         // 1. 背景层
                         BreathingBackground(animation: _breathController),
 
-                        // 2. 右上角任务标签（关联状态）
-                        ListenableBuilder(
-                          listenable: focusSessionState,
-                          builder: (context, _) {
-                            if (!focusSessionState.hasLink) {
-                              return const SizedBox.shrink();
-                            }
-                            return SafeArea(
-                              child: Positioned(
-                                top: 16,
-                                right: 16,
-                                child: GestureDetector(
-                                  onTap: _showUnlinkDialog,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.primaryContainer,
-                                      borderRadius: BorderRadius.circular(16),
-                                      border: Border.all(
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.primary,
-                                        width: 1,
-                                      ),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          Icons.link_rounded,
-                                          size: 14,
-                                          color: Theme.of(
-                                            context,
-                                          ).colorScheme.onPrimaryContainer,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          focusSessionState
-                                                  .linkedObjectiveTitle ??
-                                              '',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w500,
-                                            color: Theme.of(
-                                              context,
-                                            ).colorScheme.onPrimaryContainer,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-
                         // 3. 核心内容层 (计时器 + 输入框)
                         Center(
                           child: Column(
@@ -387,7 +324,7 @@ class _FocusPageState extends State<FocusPage> with TickerProviderStateMixin {
                                         color: Theme.of(context)
                                             .colorScheme
                                             .onSurfaceVariant
-                                            .withOpacity(0.7),
+                                            .withValues(alpha: 0.7),
                                         letterSpacing: 1.2,
                                       ),
                                       enabledBorder: UnderlineInputBorder(
@@ -412,6 +349,80 @@ class _FocusPageState extends State<FocusPage> with TickerProviderStateMixin {
                               const SizedBox(height: 50),
                             ],
                           ),
+                        ),
+
+                        // 2. 右上角任务标签 - 极简点前缀设计（放在最后确保在 z 轴最上层）
+                        ListenableBuilder(
+                          listenable: focusSessionState,
+                          builder: (context, _) {
+                            final hasLink = focusSessionState.hasLink;
+                            final objectiveTitle = focusSessionState.linkedObjectiveTitle;
+                            final keyResultTitle = focusSessionState.linkedKeyResultTitle;
+
+                            // 如果没有关联，不显示标签
+                            if (!hasLink || objectiveTitle == null) {
+                              return const SizedBox.shrink();
+                            }
+
+                            return Positioned(
+                              top: 24,
+                              right: 24,
+                              child: GestureDetector(
+                                onTap: _showUnlinkDialog,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .surface
+                                        .withValues(alpha: 0.9),
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .outlineVariant
+                                          .withValues(alpha: 0.5),
+                                      width: 0.5,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.04),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: ConstrainedBox(
+                                    constraints: const BoxConstraints(
+                                      maxWidth: 240,
+                                    ),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        // Objective 标签（必定显示）
+                                        DotLabel.objective(
+                                          context,
+                                          text: objectiveTitle,
+                                        ),
+                                        // Key Result 标签（如果有）
+                                        if (keyResultTitle != null) ...[
+                                          const SizedBox(height: 6),
+                                          DotLabel.keyResult(
+                                            context,
+                                            text: keyResultTitle,
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
                         ),
 
                         // 3. 斩击交互层 (全屏遮罩 + 手势)
@@ -519,18 +530,7 @@ class _FocusPageState extends State<FocusPage> with TickerProviderStateMixin {
   Future<void> _handleSubmit(String value) async {
     if (value.trim().isEmpty) return;
 
-    // 写入数据库
-    await db
-        .into(db.thoughts)
-        .insert(
-          ThoughtsCompanion(
-            id: drift.Value(const Uuid().v4()),
-            content: drift.Value(value.trim()),
-            type: const drift.Value('todo'),
-            isResolved: const drift.Value(true),
-          ),
-        );
-
+    // 不立即写入数据库，只暂存内容，等用户斩击或长按后再保存
     _textController.clear();
     _inputFocus.unfocus();
     HapticFeedback.lightImpact();
@@ -594,7 +594,28 @@ class _FocusPageState extends State<FocusPage> with TickerProviderStateMixin {
       _hasSlashed = true;
       _slashKey.currentState?.slash();
       HapticFeedback.mediumImpact();
+      // 斩击化解：保存念头但标记为已处理
+      _saveSlashedThought();
       _closeSlashDialog();
+    }
+  }
+
+  /// 斩击化解时保存念头（也出现在日记供日后分析）
+  Future<void> _saveSlashedThought() async {
+    if (_pendingThought.trim().isEmpty) return;
+    try {
+      await db.into(db.thoughts).insert(
+        ThoughtsCompanion(
+          id: drift.Value(const Uuid().v4()),
+          content: drift.Value(_pendingThought.trim()),
+          type: const drift.Value('distraction'),
+          isResolved: const drift.Value(false), // 未处理，出现在日记
+          createdAt: drift.Value(DateTime.now()),
+          isSynced: const drift.Value(false),
+        ),
+      );
+    } catch (e) {
+      debugPrint('[FocusPage] ❌ 保存念头失败: $e');
     }
   }
 
@@ -701,7 +722,7 @@ class _FocusPageState extends State<FocusPage> with TickerProviderStateMixin {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: colorScheme.onSurfaceVariant.withOpacity(0.4),
+                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
@@ -947,7 +968,7 @@ class _SlashDialogOverlay extends StatelessWidget {
           children: [
             // 半透明遮罩
             Container(
-              color: Theme.of(context).colorScheme.scrim.withOpacity(0.6),
+              color: Theme.of(context).colorScheme.scrim.withValues(alpha: 0.6),
             ),
 
             // 居中的被斩击物体 + 液态蓄力动画（固定尺寸）
@@ -984,12 +1005,12 @@ class _SlashDialogOverlay extends StatelessWidget {
                                   color: colorScheme.surfaceContainerHighest,
                                   borderRadius: BorderRadius.circular(20),
                                   border: Border.all(
-                                    color: colorScheme.primary.withOpacity(0.3),
+                                    color: colorScheme.primary.withValues(alpha: 0.3),
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: colorScheme.primary.withOpacity(
-                                        0.1,
+                                      color: colorScheme.primary.withValues(
+                                        alpha: 0.1,
                                       ),
                                       blurRadius: 20,
                                       spreadRadius: 2,
@@ -1007,8 +1028,8 @@ class _SlashDialogOverlay extends StatelessWidget {
                                   heightFactor: t,
                                   child: Container(
                                     decoration: BoxDecoration(
-                                      color: colorScheme.primary.withOpacity(
-                                        0.25,
+                                      color: colorScheme.primary.withValues(
+                                        alpha: 0.25,
                                       ),
                                     ),
                                   ),

@@ -75,7 +75,7 @@ class FocusRingState extends State<FocusRing>
     final Color innerColorStart = colorScheme.surfaceContainerHigh;
     final Color innerColorEnd = colorScheme.surfaceContainer;
     // 轨道底色
-    final Color inactiveColor = colorScheme.outlineVariant.withOpacity(0.2);
+    final Color inactiveColor = colorScheme.outlineVariant.withValues(alpha: 0.2);
 
     // 动态生成渐变
     final Gradient restGradient = SweepGradient(
@@ -122,12 +122,12 @@ class FocusRingState extends State<FocusRing>
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: colorScheme.shadow.withOpacity(0.1),
+                        color: colorScheme.shadow.withValues(alpha: 0.1),
                         offset: const Offset(4, 4),
                         blurRadius: 10,
                       ),
                       BoxShadow(
-                        color: colorScheme.surface.withOpacity(0.5),
+                        color: colorScheme.surface.withValues(alpha: 0.5),
                         offset: const Offset(-2, -2),
                         blurRadius: 5,
                       ),

@@ -163,6 +163,14 @@ class AppDatabase extends _$AppDatabase {
         .get();
   }
 
+  /// 实时监听所有未处理的活跃念头
+  Stream<List<Thought>> watchActiveThoughts() {
+    return (select(thoughts)
+          ..where((t) => t.isResolved.equals(false))
+          ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
+        .watch();
+  }
+
   /// 获取收件箱中的念头（category='inbox'）
   Future<List<Thought>> getInboxThoughts() {
     return (select(thoughts)
@@ -181,6 +189,47 @@ class AppDatabase extends _$AppDatabase {
     await (update(thoughts)..where((t) => t.id.equals(id))).write(
       ThoughtsCompanion(
         isResolved: const Value(true),
+        isSynced: const Value(false),
+      ),
+    );
+  }
+
+  /// 更新念头内容
+  Future<void> updateThoughtContent(String id, String newContent) async {
+    await (update(thoughts)..where((t) => t.id.equals(id))).write(
+      ThoughtsCompanion(
+        content: Value(newContent),
+        isSynced: const Value(false),
+      ),
+    );
+  }
+
+  /// 删除念头
+  Future<void> deleteThought(String id) async {
+    await (delete(thoughts)..where((t) => t.id.equals(id))).go();
+  }
+
+  // --- Focus Session 管理 ---
+
+  /// 获取待确认的番茄钟（focusQuality 或 reviewNote 为空）- Stream版本
+  Stream<List<FocusSession>> watchPendingReviewSessions() {
+    return (select(focusSessions)
+          ..where((t) => t.focusQuality.isNull() | t.reviewNote.isNull())
+          ..orderBy([(t) => OrderingTerm.desc(t.startTime)]))
+        .watch();
+  }
+
+  /// 更新番茄钟的质量评分和反思笔记
+  Future<void> updateFocusSessionReview({
+    required String sessionId,
+    int? focusQuality,
+    String? reviewNote,
+  }) async {
+    await (update(focusSessions)..where((t) => t.id.equals(sessionId))).write(
+      FocusSessionsCompanion(
+        focusQuality: Value(focusQuality),
+        reviewNote: Value(reviewNote),
+        updatedAt: Value(DateTime.now()),
         isSynced: const Value(false),
       ),
     );

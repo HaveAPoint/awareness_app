@@ -1,7 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import '../../main.dart'; // for focusSessionState
+import 'package:drift/drift.dart' as drift;
+import 'package:uuid/uuid.dart';
+import '../../main.dart'; // for focusSessionState, db
+import '../../data/database/database.dart';
 
 // 1. 扩展状态定义
 enum FocusStatus {
@@ -40,6 +43,9 @@ class FocusController extends ChangeNotifier {
   int _currentCycleStep = 0; // 当前会话的循环步骤（每次启动时重置为0）
   int _persistedCycleCount = 0; // 当前会话的循环计数
   bool _isInitialized = false; // 是否已完成初始化
+
+  // 番茄钟会话记录
+  int? _sessionStartTime; // 工作开始时间（Unix秒）
 
   // 回调：当倒计时归零的瞬间触发（用于播放提示音或震动）
   final VoidCallback? onTimerComplete;
@@ -81,6 +87,9 @@ class FocusController extends ChangeNotifier {
   Future<void> _onWorkCompleted() async {
     await _initializeCycleCount(); // 确保已初始化
 
+    // 保存番茄钟记录到数据库
+    await _saveFocusSession();
+
     // 检查当前步骤是否为最后一个工作步骤（6）
     // 如果是，完成循环
     if (_currentCycleStep == 6) {
@@ -98,6 +107,33 @@ class FocusController extends ChangeNotifier {
       _currentCycleStep++;
       debugPrint('[FocusController] 工作完成，进入循环步骤 $_currentCycleStep (休息)');
     }
+  }
+
+  /// 保存番茄钟会话到数据库
+  Future<void> _saveFocusSession() async {
+    if (_sessionStartTime == null) return;
+
+    final endTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final duration = endTime - _sessionStartTime!;
+
+    try {
+      await db.into(db.focusSessions).insert(
+        FocusSessionsCompanion(
+          id: drift.Value(const Uuid().v4()),
+          startTime: drift.Value(_sessionStartTime!),
+          endTime: drift.Value(endTime),
+          durationSeconds: drift.Value(duration),
+          type: const drift.Value('work'),
+          status: const drift.Value('completed'),
+          // focusQuality 和 reviewNote 为 null，等待用户在日记页面填写
+        ),
+      );
+      debugPrint('[FocusController] ✅ 番茄钟记录已保存: ${duration ~/ 60}分钟');
+    } catch (e) {
+      debugPrint('[FocusController] ❌ 保存番茄钟记录失败: $e');
+    }
+
+    _sessionStartTime = null;
   }
 
   /// 处理休息完成后的循环状态更新
@@ -316,6 +352,8 @@ class FocusController extends ChangeNotifier {
     debugPrint(
       '[FocusController] 即将使用 _workDuration=$_workDuration (${_workDuration ~/ 60}分钟) 开始计时',
     );
+    // 记录开始时间
+    _sessionStartTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     _startTimer(FocusStatus.running, _workDuration);
   }
 

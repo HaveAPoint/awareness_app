@@ -42,7 +42,7 @@ class _LaunchpadSectionState extends State<LaunchpadSection> {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 24,
             offset: const Offset(0, 8),
           ),
@@ -159,7 +159,7 @@ class _LaunchpadSectionState extends State<LaunchpadSection> {
           ),
           borderRadius: BorderRadius.circular(12),
           color: isLongPressing
-              ? colorScheme.primaryContainer.withOpacity(0.3)
+              ? colorScheme.primaryContainer.withValues(alpha: 0.3)
               : Colors.transparent,
         ),
         child: Column(
@@ -172,7 +172,7 @@ class _LaunchpadSectionState extends State<LaunchpadSection> {
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
                 color: isCompleted
-                    ? colorScheme.onSurfaceVariant.withOpacity(0.6)
+                    ? colorScheme.onSurfaceVariant.withValues(alpha: 0.6)
                     : colorScheme.onSurface,
                 decoration: isCompleted ? TextDecoration.lineThrough : null,
                 decorationColor: colorScheme.outline,

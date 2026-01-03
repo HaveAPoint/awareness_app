@@ -22,7 +22,7 @@ class _DashboardPageState extends State<DashboardPage> {
   List<Widget> get _pages => [
     const FocusPage(),
     JournalPage(onSwitchToFocus: switchToFocusPage),
-    const GoalsPage(),
+    GoalsPage(onSwitchToFocus: switchToFocusPage),
   ];
 
   @override
