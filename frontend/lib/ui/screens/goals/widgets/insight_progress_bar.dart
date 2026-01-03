@@ -101,7 +101,7 @@ class InsightProgressBar extends StatelessWidget {
                 value: value,
                 backgroundColor: Colors.transparent,
                 valueColor: AlwaysStoppedAnimation<Color>(
-                  color.withOpacity(opacity),
+                  color.withValues(alpha: opacity),
                 ),
                 minHeight: height,
               ),

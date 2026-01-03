@@ -6,7 +6,9 @@ import 'widgets/okr_card.dart';
 import 'widgets/create_okr_dialog.dart';
 
 class GoalsPage extends StatefulWidget {
-  const GoalsPage({super.key});
+  final VoidCallback? onSwitchToFocus;
+
+  const GoalsPage({super.key, this.onSwitchToFocus});
 
   @override
   State<GoalsPage> createState() => _GoalsPageState();
@@ -65,6 +67,11 @@ class _GoalsPageState extends State<GoalsPage> {
           ),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.add_rounded),
+            color: Colors.black54,
+            onPressed: _showCreateDialog,
+          ),
           PopupMenuButton<String>(
             icon: Icon(
               Icons.filter_list,
@@ -83,19 +90,12 @@ class _GoalsPageState extends State<GoalsPage> {
               _buildFilterMenuItem('archived', '已归档'),
             ],
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 8),
         ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _buildList(_objectives, '暂无目标'),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showCreateDialog,
-        backgroundColor: Colors.black,
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text("新建目标", style: TextStyle(color: Colors.white)),
-        elevation: 4,
-      ),
     );
   }
 
@@ -192,8 +192,74 @@ class _GoalsPageState extends State<GoalsPage> {
       itemCount: objectives.length,
       separatorBuilder: (context, index) => const SizedBox(height: 20),
       itemBuilder: (context, index) {
-        return GoalCard(objective: objectives[index]);
+        final objective = objectives[index];
+        return GoalCard(
+          objective: objective,
+          onStartFocusForKr: (kr) => _startFocusWithKeyResult(objective, kr),
+          onEditKr: (kr) => _editKeyResult(objective, kr),
+          onEdit: () => _editObjective(objective), // 新增：整个卡片的编辑回调
+        );
       },
+    );
+  }
+
+  /// 滑动触发：绑定 KR 并跳转到番茄钟
+  void _startFocusWithKeyResult(ObjectiveModel objective, KeyResultModel kr) {
+    // 关联 KR 到全局状态
+    focusSessionState.linkKeyResult(
+      objectiveId: objective.id,
+      objectiveTitle: objective.title,
+      keyResultId: kr.id,
+      keyResultTitle: kr.title,
+    );
+
+    // 跳转到番茄钟页面
+    widget.onSwitchToFocus?.call();
+  }
+
+  /// 点击触发：编辑 KR
+  void _editKeyResult(ObjectiveModel objective, KeyResultModel kr) {
+    // TODO: 打开 KR 编辑对话框
+    debugPrint('编辑 KR: ${kr.title}');
+  }
+
+  /// 点击卡片触发：编辑整个 Objective
+  void _editObjective(ObjectiveModel objective) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => CreateOkrDialog(
+        initialData: objective, // 传入现有数据进入编辑模式
+        onSave: (title, description, deadline, krs) async {
+          try {
+            // 更新到数据库（事务处理）
+            await _repository.updateObjectiveWithKeyResults(
+              objectiveId: objective.id,
+              title: title,
+              description: description,
+              deadline: deadline.millisecondsSinceEpoch ~/ 1000,
+              keyResults: krs,
+            );
+
+            // 重新加载列表
+            await _loadObjectives();
+
+            if (mounted) {
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('目标更新成功')));
+            }
+          } catch (e) {
+            debugPrint('更新目标失败: $e');
+            if (mounted) {
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text('更新失败: $e')));
+            }
+          }
+        },
+      ),
     );
   }
 }

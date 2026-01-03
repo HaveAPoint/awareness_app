@@ -144,6 +144,66 @@ class GoalRepository {
     );
   }
 
+  /// 更新 Objective 及其所有 KeyResults（事务处理）
+  /// 用于编辑目标时同时更新基本信息和KR列表
+  Future<void> updateObjectiveWithKeyResults({
+    required String objectiveId,
+    required String title,
+    String? description,
+    required int deadline,
+    required List<Map<String, dynamic>> keyResults,
+  }) async {
+    await _db.transaction(() async {
+      // 1. 更新 Objective 基本信息
+      await updateObjective(
+        id: objectiveId,
+        title: title,
+        description: description,
+        deadline: deadline,
+      );
+
+      // 2. 获取现有 KRs
+      final existingKrs = await _getKeyResultsForObjective(objectiveId);
+      final existingKrMap = {for (var kr in existingKrs) kr.id: kr};
+
+      // 3. 处理传入的 KRs
+      final updatedKrIds = <String>{};
+
+      for (final krData in keyResults) {
+        final krId = krData['id'] as String?;
+
+        if (krId != null && existingKrMap.containsKey(krId)) {
+          // 更新现有 KR（保留 currentVal）
+          await updateKeyResult(
+            krId: krId,
+            title: krData['title'] as String,
+            targetVal: krData['target'] as double,
+            unit: krData['unit'] as String?,
+          );
+          updatedKrIds.add(krId);
+        } else {
+          // 添加新 KR
+          await addKeyResult(
+            objectiveId: objectiveId,
+            title: krData['title'] as String,
+            targetVal: krData['target'] as double,
+            unit: krData['unit'] as String?,
+          );
+        }
+      }
+
+      // 4. 删除被移除的 KRs
+      for (final existingKr in existingKrs) {
+        if (!updatedKrIds.contains(existingKr.id)) {
+          await deleteKeyResult(existingKr.id);
+        }
+      }
+
+      // 5. 最终重算进度（各方法内已触发，但为保险再执行一次）
+      await _recalculateObjectiveProgress(objectiveId);
+    });
+  }
+
   // --- Key Result Operations ---
 
   /// 获取某个 Objective 的所有 KeyResults
@@ -197,6 +257,37 @@ class GoalRepository {
 
     // 触发重算
     await _recalculateObjectiveProgress(objectiveId);
+  }
+
+  /// 更新 KeyResult 的元数据（title, targetVal, unit, weight）
+  /// 注意：不修改 currentVal，进度值仅通过 addCheckIn 更新
+  Future<void> updateKeyResult({
+    required String krId,
+    String? title,
+    double? targetVal,
+    String? unit,
+    double? weight,
+  }) async {
+    // 先获取 objectiveId 用于重算
+    final kr = await (_db.select(
+      _db.keyResults,
+    )..where((t) => t.id.equals(krId))).getSingleOrNull();
+
+    if (kr == null) return;
+
+    await (_db.update(_db.keyResults)..where((t) => t.id.equals(krId))).write(
+      KeyResultsCompanion(
+        title: title != null ? Value(title) : const Value.absent(),
+        targetVal: targetVal != null ? Value(targetVal) : const Value.absent(),
+        unit: unit != null ? Value(unit) : const Value.absent(),
+        weight: weight != null ? Value(weight) : const Value.absent(),
+        updatedAt: Value(DateTime.now()),
+        isSynced: const Value(false),
+      ),
+    );
+
+    // 触发重算
+    await _recalculateObjectiveProgress(kr.objectiveId);
   }
 
   /// 删除 KeyResult

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../../../data/models/goal_models.dart';
 
 class CreateOkrDialog extends StatefulWidget {
   final Function(
@@ -9,8 +10,13 @@ class CreateOkrDialog extends StatefulWidget {
     List<Map<String, dynamic>> keyResults,
   )
   onSave;
+  final ObjectiveModel? initialData; // null = 创建模式, 非null = 编辑模式
 
-  const CreateOkrDialog({super.key, required this.onSave});
+  const CreateOkrDialog({
+    super.key,
+    required this.onSave,
+    this.initialData,
+  });
 
   @override
   State<CreateOkrDialog> createState() => _CreateOkrDialogState();
@@ -29,8 +35,28 @@ class _CreateOkrDialogState extends State<CreateOkrDialog> {
   @override
   void initState() {
     super.initState();
-    _deadline = DateTime.now().add(const Duration(days: 90));
-    _addKrRow(); // Start with one empty KR
+
+    if (widget.initialData != null) {
+      // 编辑模式：预填充现有数据
+      final obj = widget.initialData!;
+      _titleController.text = obj.title;
+      _descController.text = obj.description ?? '';
+      _deadline = DateTime.fromMillisecondsSinceEpoch(obj.deadline * 1000);
+
+      // 预填充 KRs（包含ID）
+      for (final kr in obj.keyResults) {
+        _krRows.add(_KeyResultFormRow(
+          id: kr.id,
+          initialTitle: kr.title,
+          initialTarget: kr.targetVal.toString(),
+          initialUnit: kr.unit ?? '',
+        ));
+      }
+    } else {
+      // 创建模式：默认配置
+      _deadline = DateTime.now().add(const Duration(days: 90));
+      _addKrRow(); // Start with one empty KR
+    }
   }
 
   @override
@@ -49,10 +75,41 @@ class _CreateOkrDialogState extends State<CreateOkrDialog> {
     });
   }
 
-  void _removeKrRow(int index) {
+  void _removeKrRow(int index) async {
     if (_krRows.length <= 1) return; // Keep at least one
+
+    final row = _krRows[index];
+
+    // 如果是编辑模式且KR有ID（即已存在的KR），需要确认
+    if (widget.initialData != null && row.id != null) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('确认删除'),
+          content: const Text(
+            '删除此关键结果后，其所有历史打卡数据也会被永久删除。\n\n确定要继续吗？',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('取消'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.red,
+              ),
+              child: const Text('删除'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed != true) return; // 用户取消
+    }
+
     setState(() {
-      final row = _krRows.removeAt(index);
+      _krRows.removeAt(index);
       row.dispose();
     });
   }
@@ -76,9 +133,10 @@ class _CreateOkrDialogState extends State<CreateOkrDialog> {
       final krs = _krRows
           .map(
             (row) => {
+              'id': row.id, // 传递ID（null表示新建）
               'title': row.titleController.text,
               'target': double.tryParse(row.targetController.text) ?? 0.0,
-              'unit': row.unitController.text,
+              'unit': row.unitController.text.isEmpty ? null : row.unitController.text,
             },
           )
           .toList();
@@ -126,15 +184,15 @@ class _CreateOkrDialogState extends State<CreateOkrDialog> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                '新建目标',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              Text(
+                widget.initialData == null ? '新建目标' : '编辑目标',
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               TextButton(
                 onPressed: _handleSave,
-                child: const Text(
-                  '保存',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                child: Text(
+                  widget.initialData == null ? '保存' : '更新',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
             ],
@@ -313,9 +371,21 @@ class _CreateOkrDialogState extends State<CreateOkrDialog> {
 }
 
 class _KeyResultFormRow {
+  final String? id; // 用于区分新建/更新（null=新建，非null=更新）
   final titleController = TextEditingController();
   final targetController = TextEditingController();
   final unitController = TextEditingController();
+
+  _KeyResultFormRow({
+    this.id,
+    String? initialTitle,
+    String? initialTarget,
+    String? initialUnit,
+  }) {
+    if (initialTitle != null) titleController.text = initialTitle;
+    if (initialTarget != null) targetController.text = initialTarget;
+    if (initialUnit != null) unitController.text = initialUnit;
+  }
 
   void dispose() {
     titleController.dispose();
