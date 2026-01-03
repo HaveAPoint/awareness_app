@@ -18,6 +18,8 @@ class Objectives extends Table {
   // 缓存进度
   RealColumn get calculatedProgress =>
       real().withDefault(const Constant(0.0))();
+  // 目标颜色 (Hex string, e.g., "0xFFF6AD55")
+  TextColumn get color => text().nullable()();
   // Sync fields
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();

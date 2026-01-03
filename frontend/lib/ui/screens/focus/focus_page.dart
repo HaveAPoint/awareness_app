@@ -298,24 +298,38 @@ class _FocusPageState extends State<FocusPage> with TickerProviderStateMixin {
 
                               const SizedBox(height: 40),
 
-                              // --- 念头捕获输入框 (未显示弹窗时显示) ---
+                              // --- 念头捕获输入框 (新拟态风格) ---
                               AnimatedOpacity(
                                 duration: const Duration(milliseconds: 300),
                                 opacity: _showDialog ? 0.0 : 1.0, // 弹窗显示时隐藏输入框
-                                child: SizedBox(
+                                child: Container(
                                   width: 320,
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.surfaceContainerHigh,
+                                    borderRadius: BorderRadius.circular(16),
+                                    boxShadow: [
+                                      // 内阴影效果 - 右下深色
+                                      BoxShadow(
+                                        color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.12),
+                                        offset: const Offset(4, 4),
+                                        blurRadius: 8,
+                                      ),
+                                      // 内阴影效果 - 左上亮色
+                                      BoxShadow(
+                                        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
+                                        offset: const Offset(-3, -3),
+                                        blurRadius: 6,
+                                      ),
+                                    ],
+                                  ),
                                   child: TextField(
                                     controller: _textController,
                                     focusNode: _inputFocus,
                                     autofocus: false,
                                     style: TextStyle(
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.onSurface,
+                                      color: Theme.of(context).colorScheme.onSurface,
                                     ),
-                                    cursorColor: Theme.of(
-                                      context,
-                                    ).colorScheme.primary,
+                                    cursorColor: Theme.of(context).colorScheme.primary,
                                     textInputAction: TextInputAction.done,
                                     onSubmitted: _handleSubmit,
                                     decoration: InputDecoration(
@@ -324,22 +338,13 @@ class _FocusPageState extends State<FocusPage> with TickerProviderStateMixin {
                                         color: Theme.of(context)
                                             .colorScheme
                                             .onSurfaceVariant
-                                            .withValues(alpha: 0.7),
+                                            .withValues(alpha: 0.6),
                                         letterSpacing: 1.2,
                                       ),
-                                      enabledBorder: UnderlineInputBorder(
-                                        borderSide: BorderSide(
-                                          color: Theme.of(
-                                            context,
-                                          ).colorScheme.outlineVariant,
-                                        ),
-                                      ),
-                                      focusedBorder: UnderlineInputBorder(
-                                        borderSide: BorderSide(
-                                          color: Theme.of(
-                                            context,
-                                          ).colorScheme.primary,
-                                        ),
+                                      border: InputBorder.none,
+                                      contentPadding: const EdgeInsets.symmetric(
+                                        horizontal: 20,
+                                        vertical: 16,
                                       ),
                                     ),
                                   ),
@@ -365,7 +370,7 @@ class _FocusPageState extends State<FocusPage> with TickerProviderStateMixin {
                             }
 
                             return Positioned(
-                              top: 24,
+                              top: 44,
                               right: 24,
                               child: GestureDetector(
                                 onTap: _showUnlinkDialog,
@@ -896,24 +901,33 @@ class BreathingBackground extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    // 新拟态典型背景色
+    const neuBackground = Color(0xFFE8ECEF);
+    const neuHighlight = Color(0xFFF5F8FA);
+
     return AnimatedBuilder(
       animation: animation,
       builder: (context, _) {
         final t = animation.value;
-        // 调整呼吸幅度和颜色混合
-        // 使用 primaryContainer 作为中心亮色，surface 作为边缘色
+        // 新拟态风格：柔和的灰白色基调，带轻微主色染色呼吸
         return Container(
           decoration: BoxDecoration(
             gradient: RadialGradient(
               center: const Alignment(0, -0.2),
-              radius: 1.3,
+              radius: 1.4,
               colors: [
+                // 中心：新拟态基础色 + 轻微主色染色呼吸
                 Color.lerp(
+                  neuHighlight,
+                  colorScheme.primaryContainer.withValues(alpha: 0.4),
+                  0.08 + 0.04 * t,
+                )!,
+                // 边缘：保持新拟态灰白基调
+                Color.lerp(
+                  neuBackground,
                   colorScheme.surface,
-                  colorScheme.primaryContainer,
-                  0.15 + 0.05 * t,
-                )!, // 中心微亮
-                colorScheme.surface, // 边缘保持背景色
+                  0.3,
+                )!,
               ],
             ),
           ),
@@ -955,6 +969,9 @@ class _SlashDialogOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 新拟态背景色
+    const neuBackground = Color(0xFFE8ECEF);
+
     return Positioned.fill(
       child: GestureDetector(
         behavior: HitTestBehavior.opaque, // 拦截所有点击
@@ -966,9 +983,9 @@ class _SlashDialogOverlay extends StatelessWidget {
         onPanEnd: onPanEnd,
         child: Stack(
           children: [
-            // 半透明遮罩
+            // 半透明遮罩 - 使用更柔和的新拟态色调
             Container(
-              color: Theme.of(context).colorScheme.scrim.withValues(alpha: 0.6),
+              color: neuBackground.withValues(alpha: 0.85),
             ),
 
             // 居中的被斩击物体 + 液态蓄力动画（固定尺寸）
@@ -998,28 +1015,38 @@ class _SlashDialogOverlay extends StatelessWidget {
                             : Curves.easeOut,
                         child: Stack(
                           children: [
-                            // 基础卡片
+                            // 新拟态凸起卡片
                             Positioned.fill(
                               child: Container(
                                 decoration: BoxDecoration(
-                                  color: colorScheme.surfaceContainerHighest,
+                                  color: neuBackground,
                                   borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
-                                    color: colorScheme.primary.withValues(alpha: 0.3),
-                                  ),
                                   boxShadow: [
+                                    // 左上亮色高光
+                                    BoxShadow(
+                                      color: Colors.white.withValues(alpha: 0.8),
+                                      offset: const Offset(-6, -6),
+                                      blurRadius: 12,
+                                    ),
+                                    // 右下深色阴影
+                                    BoxShadow(
+                                      color: colorScheme.shadow.withValues(alpha: 0.15),
+                                      offset: const Offset(6, 6),
+                                      blurRadius: 12,
+                                    ),
+                                    // 主色光晕（蓄力时增强）
                                     BoxShadow(
                                       color: colorScheme.primary.withValues(
-                                        alpha: 0.1,
+                                        alpha: 0.08 + 0.12 * t,
                                       ),
-                                      blurRadius: 20,
+                                      blurRadius: 20 + 10 * t,
                                       spreadRadius: 2,
                                     ),
                                   ],
                                 ),
                               ),
                             ),
-                            // 底部向上填充的“液态”效果
+                            // 底部向上填充的"液态"效果
                             Positioned.fill(
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(20),
@@ -1028,8 +1055,13 @@ class _SlashDialogOverlay extends StatelessWidget {
                                   heightFactor: t,
                                   child: Container(
                                     decoration: BoxDecoration(
-                                      color: colorScheme.primary.withValues(
-                                        alpha: 0.25,
+                                      gradient: LinearGradient(
+                                        begin: Alignment.bottomCenter,
+                                        end: Alignment.topCenter,
+                                        colors: [
+                                          colorScheme.primary.withValues(alpha: 0.3),
+                                          colorScheme.primary.withValues(alpha: 0.1),
+                                        ],
                                       ),
                                     ),
                                   ),

@@ -40,8 +40,23 @@ class PomodoroProgressRow extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 20.0),
       padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 12.0),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
         borderRadius: BorderRadius.circular(14),
+        // 新拟态凸起效果
+        boxShadow: [
+          // 左上亮色高光
+          BoxShadow(
+            color: Colors.white.withValues(alpha: 0.6),
+            offset: const Offset(-2, -2),
+            blurRadius: 4,
+          ),
+          // 右下深色阴影
+          BoxShadow(
+            color: colorScheme.shadow.withValues(alpha: 0.08),
+            offset: const Offset(2, 2),
+            blurRadius: 4,
+          ),
+        ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween, // 两端对齐，中间自动间隔

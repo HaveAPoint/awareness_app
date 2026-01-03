@@ -3,6 +3,7 @@ import 'package:drift/drift.dart' as drift;
 import '../../../../main.dart'; // for db
 import '../../../../data/database/database.dart';
 import 'chronos_dial.dart';
+import 'task_time_bar_chart.dart';
 import 'weighted_objective_tile.dart';
 
 /// Mirror Section - 觉知仪表盘
@@ -14,119 +15,130 @@ class MirrorSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // 标题
-          Row(
-            children: [
-              Icon(
-                Icons.insights_rounded,
-                color: Colors.blue.shade700,
-                size: 24,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '觉知镜像',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 标题
+            Row(
+              children: [
+                Icon(
+                  Icons.insights_rounded,
                   color: Colors.blue.shade700,
+                  size: 24,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '觉知镜像',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue.shade700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // 主体内容
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 1. ChronosDial - 时间分配圆盘（暂时注释）
+                    // _buildChronosDialSection(context),
+                    // const SizedBox(height: 32),
+
+                    // 2. 任务时间分布
+                    _buildObjectivesSection(context),
+                  ],
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 20),
-
-          // 主体内容
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  // 1. ChronosDial - 时间分配圆盘
-                  _buildChronosDialSection(context),
-                  const SizedBox(height: 32),
-
-                  // 2. WeightedObjectiveTile 列表
-                  _buildObjectivesSection(context),
-                ],
-              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  /// 构建 ChronosDial 区域
-  Widget _buildChronosDialSection(BuildContext context) {
-    return StreamBuilder<List<_SessionWithObjective>>(
-      stream: _getTodaySessionsStream(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(32),
-              child: CircularProgressIndicator(),
-            ),
-          );
-        }
-
-        final sessionsWithObjectives = snapshot.data!;
-
-        // 转换为 PomodoroSessionData 格式
-        final sessions = sessionsWithObjectives.map((item) {
-          final color = _getColorForObjective(item.objectiveId);
-          return PomodoroSessionData.fromFocusSession(item.session, color);
-        }).toList();
-
-        return Column(
-          children: [
-            ChronosDial(
-              sessions: sessions,
-              size: 240,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              '已完成 ${sessions.length} 个番茄钟',
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.black54,
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
+  // /// 构建 ChronosDial 区域（暂时注释）
+  // Widget _buildChronosDialSection(BuildContext context) {
+  //   return StreamBuilder<List<_SessionWithObjective>>(
+  //     stream: _getTodaySessionsStream(),
+  //     builder: (context, snapshot) {
+  //       if (!snapshot.hasData) {
+  //         return const Center(
+  //           child: Padding(
+  //             padding: EdgeInsets.all(32),
+  //             child: CircularProgressIndicator(),
+  //           ),
+  //         );
+  //       }
+  //
+  //       final sessionsWithObjectives = snapshot.data!;
+  //
+  //       // 转换为 PomodoroSessionData 格式
+  //       final sessions = sessionsWithObjectives.map((item) {
+  //         final color = _getColorForObjective(item.objectiveId);
+  //         return PomodoroSessionData.fromFocusSession(item.session, color);
+  //       }).toList();
+  //
+  //       return Column(
+  //         children: [
+  //           ChronosDial(
+  //             sessions: sessions,
+  //             size: 240,
+  //           ),
+  //           const SizedBox(height: 12),
+  //           Text(
+  //             '已完成 ${sessions.length} 个番茄钟',
+  //             style: TextStyle(
+  //               fontSize: 13,
+  //               color: Colors.black54,
+  //             ),
+  //           ),
+  //         ],
+  //       );
+  //     },
+  //   );
+  // }
 
   /// 构建目标进度列表
   Widget _buildObjectivesSection(BuildContext context) {
-    return StreamBuilder<List<_ObjectiveWithSessions>>(
-      stream: _getObjectivesWithSessionsStream(),
+    return StreamBuilder<List<_TaskWithSessions>>(
+      stream: _getTasksWithSessionsStream(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const SizedBox.shrink();
         }
 
-        final objectivesWithSessions = snapshot.data!;
+        final tasksWithSessions = snapshot.data!;
 
-        if (objectivesWithSessions.isEmpty) {
+        // 计算总番茄钟数
+        int totalPomodoros = 0;
+        for (final item in tasksWithSessions) {
+          totalPomodoros += item.sessions.length;
+        }
+
+        if (tasksWithSessions.isEmpty) {
           return Center(
             child: Padding(
               padding: const EdgeInsets.all(32),
               child: Column(
                 children: [
                   Icon(
-                    Icons.flag_outlined,
+                    Icons.hourglass_empty_rounded,
                     size: 48,
                     color: Colors.black26,
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    '暂无活跃目标',
+                    '今日暂无任务记录',
                     style: TextStyle(
                       color: Colors.black45,
                       fontSize: 14,
@@ -138,35 +150,39 @@ class MirrorSection extends StatelessWidget {
           );
         }
 
+        // 转换为 TaskTimeData 列表
+        final taskTimeDataList = tasksWithSessions.map((item) {
+          final effectiveMinutes = calculateEffectiveMinutes(item.sessions);
+          final color = _getColorForObjective(item.objectiveId ?? 'unknown');
+          return TaskTimeData(
+            taskId: item.task.id,
+            taskTitle: item.task.title,
+            effectiveMinutes: effectiveMinutes,
+            color: color,
+          );
+        }).toList();
+
+        // 按有效时间降序排列
+        taskTimeDataList.sort((a, b) => b.effectiveMinutes.compareTo(a.effectiveMinutes));
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Divider(height: 1, color: Colors.black12),
-            const SizedBox(height: 20),
-            Text(
-              '目标进度（基于有效时间）',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
-              ),
+            TaskTimeBarChart(
+              tasks: taskTimeDataList,
+              title: '任务时间分布（基于有效时间）',
             ),
             const SizedBox(height: 16),
-            ...objectivesWithSessions.map((item) {
-              // 计算有效时间
-              final effectiveMinutes =
-                  calculateEffectiveMinutes(item.sessions);
-
-              // 默认目标：120分钟有效时间 (2小时高质量工作)
-              final targetMinutes = 120;
-
-              return WeightedObjectiveTile(
-                objective: item.objective,
-                targetEffectiveMinutes: targetMinutes,
-                currentEffectiveMinutes: effectiveMinutes,
-                color: _getColorForObjective(item.objective.id),
-              );
-            }),
+            // 番茄钟计数
+            Center(
+              child: Text(
+                '已完成 $totalPomodoros 个番茄钟',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.black54,
+                ),
+              ),
+            ),
           ],
         );
       },
@@ -278,6 +294,66 @@ class MirrorSection extends StatelessWidget {
     return sessions;
   }
 
+  /// 获取今天按任务分组的会话数据
+  Stream<List<_TaskWithSessions>> _getTasksWithSessionsStream() {
+    final now = DateTime.now();
+    final todayStart = DateTime(now.year, now.month, now.day);
+    final todayEnd = todayStart.add(const Duration(days: 1));
+
+    final startTimestamp = todayStart.millisecondsSinceEpoch ~/ 1000;
+    final endTimestamp = todayEnd.millisecondsSinceEpoch ~/ 1000;
+
+    // 监听今天的所有会话
+    final query = db.select(db.focusSessions)
+      ..where((t) =>
+          t.startTime.isBiggerOrEqualValue(startTimestamp) &
+          t.startTime.isSmallerThanValue(endTimestamp) &
+          t.taskId.isNotNull())
+      ..orderBy([(t) => drift.OrderingTerm.asc(t.startTime)]);
+
+    return query.watch().asyncMap((sessions) async {
+      // 按 taskId 分组
+      final Map<String, List<FocusSession>> sessionsByTask = {};
+      for (final session in sessions) {
+        if (session.taskId != null) {
+          sessionsByTask.putIfAbsent(session.taskId!, () => []);
+          sessionsByTask[session.taskId!]!.add(session);
+        }
+      }
+
+      // 获取任务详情和关联的目标
+      final result = <_TaskWithSessions>[];
+      for (final entry in sessionsByTask.entries) {
+        final taskId = entry.key;
+        final taskSessions = entry.value;
+
+        // 获取任务信息
+        final task = await (db.select(db.tasks)
+              ..where((t) => t.id.equals(taskId)))
+            .getSingleOrNull();
+
+        if (task == null) continue;
+
+        // 获取关联的目标ID
+        String? objectiveId;
+        if (task.krId != null) {
+          final kr = await (db.select(db.keyResults)
+                ..where((t) => t.id.equals(task.krId!)))
+              .getSingleOrNull();
+          objectiveId = kr?.objectiveId;
+        }
+
+        result.add(_TaskWithSessions(
+          task: task,
+          sessions: taskSessions,
+          objectiveId: objectiveId,
+        ));
+      }
+
+      return result;
+    });
+  }
+
   /// 根据目标ID获取颜色
   Color _getColorForObjective(String objectiveId) {
     final colors = [
@@ -315,5 +391,18 @@ class _ObjectiveWithSessions {
   _ObjectiveWithSessions({
     required this.objective,
     required this.sessions,
+  });
+}
+
+/// 辅助类：任务 + 会话列表 + 目标ID
+class _TaskWithSessions {
+  final Task task;
+  final List<FocusSession> sessions;
+  final String? objectiveId;
+
+  _TaskWithSessions({
+    required this.task,
+    required this.sessions,
+    this.objectiveId,
   });
 }

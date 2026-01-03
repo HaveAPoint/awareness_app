@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../../main.dart';
 import '../../../data/database/database.dart';
@@ -17,30 +18,49 @@ class JournalPage extends StatefulWidget {
 
 class _JournalPageState extends State<JournalPage> {
   void _showMirrorDialog() {
-    showDialog(
+    showGeneralDialog(
       context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: EdgeInsets.symmetric(
-          horizontal: MediaQuery.of(context).size.width * 0.1,
-          vertical: MediaQuery.of(context).size.height * 0.1,
-        ),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: const [
-              BoxShadow(
-                blurRadius: 30,
-                color: Colors.black26,
-                offset: Offset(0, 10),
+      barrierDismissible: true,
+      barrierLabel: '关闭',
+      barrierColor: Colors.transparent,
+      transitionDuration: const Duration(milliseconds: 200),
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+          child: Center(
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 24),
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.8,
               ),
-            ],
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: const [
+                  BoxShadow(
+                    blurRadius: 30,
+                    color: Colors.black26,
+                    offset: Offset(0, 10),
+                  ),
+                ],
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: const MirrorSection(),
+            ),
           ),
-          clipBehavior: Clip.antiAlias,
-          child: const MirrorSection(),
-        ),
-      ),
+        );
+      },
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        return FadeTransition(
+          opacity: animation,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.95, end: 1.0).animate(
+              CurvedAnimation(parent: animation, curve: Curves.easeOut),
+            ),
+            child: child,
+          ),
+        );
+      },
     );
   }
 
@@ -49,91 +69,76 @@ class _JournalPageState extends State<JournalPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
-        child: Stack(
-          children: [
-            // 主内容 - 使用StreamBuilder实时监听
-            StreamBuilder<List<FocusSession>>(
-              stream: db.watchPendingReviewSessions(),
-              builder: (context, sessionsSnapshot) {
-                return StreamBuilder<List<Thought>>(
-                  stream: db.watchActiveThoughts(),
-                  builder: (context, thoughtsSnapshot) {
-                    final sessions = sessionsSnapshot.data ?? [];
-                    final thoughts = thoughtsSnapshot.data ?? [];
-                    final isLoading = !sessionsSnapshot.hasData || !thoughtsSnapshot.hasData;
-                    final totalPending = sessions.length + thoughts.length;
+        child: StreamBuilder<List<FocusSession>>(
+          stream: db.watchPendingReviewSessions(),
+          builder: (context, sessionsSnapshot) {
+            return StreamBuilder<List<Thought>>(
+              stream: db.watchActiveThoughts(),
+              builder: (context, thoughtsSnapshot) {
+                final sessions = sessionsSnapshot.data ?? [];
+                final thoughts = thoughtsSnapshot.data ?? [];
+                final isLoading = !sessionsSnapshot.hasData || !thoughtsSnapshot.hasData;
+                final totalPending = sessions.length + thoughts.length;
 
-                    return CustomScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      slivers: [
-                        // 顶部标题
-                        SliverToBoxAdapter(
-                          child: _buildHeader(totalPending),
-                        ),
+                return CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                    // 顶部标题
+                    SliverToBoxAdapter(
+                      child: _buildHeader(totalPending),
+                    ),
 
-                        if (isLoading)
-                          const SliverFillRemaining(
-                            child: Center(
-                              child: CircularProgressIndicator(
-                                color: Color(0xFF6366F1),
-                              ),
-                            ),
-                          )
-                        else if (totalPending == 0)
-                          SliverFillRemaining(
-                            child: _buildEmptyState(),
-                          )
-                        else
-                          SliverPadding(
-                            padding: const EdgeInsets.symmetric(horizontal: 20),
-                            sliver: SliverList(
-                              delegate: SliverChildListDelegate([
-                                // 待确认番茄钟
-                                if (sessions.isNotEmpty) ...[
-                                  _buildSectionHeader(
-                                    icon: Icons.timer_outlined,
-                                    title: '待确认',
-                                    count: sessions.length,
-                                    color: const Color(0xFFF6AD55),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  ...sessions.map((s) => PendingSessionCard(session: s)),
-                                  const SizedBox(height: 24),
-                                ],
-
-                                // 待处理念头
-                                if (thoughts.isNotEmpty) ...[
-                                  _buildSectionHeader(
-                                    icon: Icons.lightbulb_outline,
-                                    title: '念头',
-                                    count: thoughts.length,
-                                    color: const Color(0xFF9F7AEA),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  ...thoughts.map((t) => PendingThoughtCard(thought: t)),
-                                ],
-
-                                const SizedBox(height: 100),
-                              ]),
-                            ),
+                    if (isLoading)
+                      const SliverFillRemaining(
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            color: Color(0xFF6366F1),
                           ),
-                      ],
-                    );
-                  },
+                        ),
+                      )
+                    else if (totalPending == 0)
+                      SliverFillRemaining(
+                        child: _buildEmptyState(),
+                      )
+                    else
+                      SliverPadding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        sliver: SliverList(
+                          delegate: SliverChildListDelegate([
+                            // 待确认番茄钟
+                            if (sessions.isNotEmpty) ...[
+                              _buildSectionHeader(
+                                icon: Icons.timer_outlined,
+                                title: '待确认',
+                                count: sessions.length,
+                                color: const Color(0xFFF6AD55),
+                              ),
+                              const SizedBox(height: 12),
+                              ...sessions.map((s) => PendingSessionCard(session: s)),
+                              const SizedBox(height: 24),
+                            ],
+
+                            // 待处理念头
+                            if (thoughts.isNotEmpty) ...[
+                              _buildSectionHeader(
+                                icon: Icons.lightbulb_outline,
+                                title: '念头',
+                                count: thoughts.length,
+                                color: const Color(0xFF9F7AEA),
+                              ),
+                              const SizedBox(height: 12),
+                              ...thoughts.map((t) => PendingThoughtCard(thought: t)),
+                            ],
+
+                            const SizedBox(height: 100),
+                          ]),
+                        ),
+                      ),
+                  ],
                 );
               },
-            ),
-
-            // 小眼睛按钮
-            Positioned(
-              right: 20,
-              bottom: 20,
-              child: _buildGlassFab(
-                icon: Icons.remove_red_eye_outlined,
-                onPressed: _showMirrorDialog,
-              ),
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
@@ -162,22 +167,33 @@ class _JournalPageState extends State<JournalPage> {
             child: const Icon(Icons.inbox_rounded, color: Colors.white, size: 24),
           ),
           const SizedBox(width: 14),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                '待处理',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1E293B),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '待处理',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1E293B),
+                  ),
                 ),
-              ),
-              Text(
-                totalPending > 0 ? '$totalPending 项' : '一切就绪',
-                style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
-              ),
-            ],
+                Text(
+                  totalPending > 0 ? '$totalPending 项' : '一切就绪',
+                  style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                ),
+              ],
+            ),
+          ),
+          // 眼睛按钮
+          IconButton(
+            onPressed: _showMirrorDialog,
+            icon: const Icon(
+              Icons.remove_red_eye_outlined,
+              color: Color(0xFF6366F1),
+              size: 26,
+            ),
           ),
         ],
       ),
@@ -260,39 +276,6 @@ class _JournalPageState extends State<JournalPage> {
           ),
           const SizedBox(height: 80),
         ],
-      ),
-    );
-  }
-
-  Widget _buildGlassFab({
-    required IconData icon,
-    required VoidCallback onPressed,
-  }) {
-    return GestureDetector(
-      onTap: onPressed,
-      child: Container(
-        width: 56,
-        height: 56,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: const Color(0xFFEEF2FF).withValues(alpha: 0.95),
-          border: Border.all(
-            color: const Color(0xFF6366F1).withValues(alpha: 0.2),
-            width: 1.5,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF6366F1).withValues(alpha: 0.2),
-              blurRadius: 20,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        child: const Icon(
-          Icons.remove_red_eye_outlined,
-          color: Color(0xFF6366F1),
-          size: 26,
-        ),
       ),
     );
   }

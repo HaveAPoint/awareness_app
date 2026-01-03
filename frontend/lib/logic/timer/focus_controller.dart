@@ -116,10 +116,14 @@ class FocusController extends ChangeNotifier {
     final endTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     final duration = endTime - _sessionStartTime!;
 
+    // 从 focusSessionState 获取关联的 taskId
+    final taskId = focusSessionState.linkedTaskId;
+
     try {
       await db.into(db.focusSessions).insert(
         FocusSessionsCompanion(
           id: drift.Value(const Uuid().v4()),
+          taskId: drift.Value(taskId), // 关联任务
           startTime: drift.Value(_sessionStartTime!),
           endTime: drift.Value(endTime),
           durationSeconds: drift.Value(duration),
@@ -128,7 +132,7 @@ class FocusController extends ChangeNotifier {
           // focusQuality 和 reviewNote 为 null，等待用户在日记页面填写
         ),
       );
-      debugPrint('[FocusController] ✅ 番茄钟记录已保存: ${duration ~/ 60}分钟');
+      debugPrint('[FocusController] ✅ 番茄钟记录已保存: ${duration ~/ 60}分钟, taskId=$taskId');
     } catch (e) {
       debugPrint('[FocusController] ❌ 保存番茄钟记录失败: $e');
     }

@@ -81,6 +81,15 @@ class $ObjectivesTable extends Objectives
         requiredDuringInsert: false,
         defaultValue: const Constant(0.0),
       );
+  static const VerificationMeta _colorMeta = const VerificationMeta('color');
+  @override
+  late final GeneratedColumn<String> color = GeneratedColumn<String>(
+    'color',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -129,6 +138,7 @@ class $ObjectivesTable extends Objectives
     deadline,
     status,
     calculatedProgress,
+    color,
     createdAt,
     updatedAt,
     isSynced,
@@ -194,6 +204,12 @@ class $ObjectivesTable extends Objectives
         ),
       );
     }
+    if (data.containsKey('color')) {
+      context.handle(
+        _colorMeta,
+        color.isAcceptableOrUnknown(data['color']!, _colorMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -249,6 +265,10 @@ class $ObjectivesTable extends Objectives
         DriftSqlType.double,
         data['${effectivePrefix}calculated_progress'],
       )!,
+      color: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}color'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -278,6 +298,7 @@ class Objective extends DataClass implements Insertable<Objective> {
   final int deadline;
   final String status;
   final double calculatedProgress;
+  final String? color;
   final DateTime createdAt;
   final DateTime updatedAt;
   final bool isSynced;
@@ -289,6 +310,7 @@ class Objective extends DataClass implements Insertable<Objective> {
     required this.deadline,
     required this.status,
     required this.calculatedProgress,
+    this.color,
     required this.createdAt,
     required this.updatedAt,
     required this.isSynced,
@@ -307,6 +329,9 @@ class Objective extends DataClass implements Insertable<Objective> {
     map['deadline'] = Variable<int>(deadline);
     map['status'] = Variable<String>(status);
     map['calculated_progress'] = Variable<double>(calculatedProgress);
+    if (!nullToAbsent || color != null) {
+      map['color'] = Variable<String>(color);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     map['is_synced'] = Variable<bool>(isSynced);
@@ -326,6 +351,9 @@ class Objective extends DataClass implements Insertable<Objective> {
       deadline: Value(deadline),
       status: Value(status),
       calculatedProgress: Value(calculatedProgress),
+      color: color == null && nullToAbsent
+          ? const Value.absent()
+          : Value(color),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
       isSynced: Value(isSynced),
@@ -347,6 +375,7 @@ class Objective extends DataClass implements Insertable<Objective> {
       calculatedProgress: serializer.fromJson<double>(
         json['calculatedProgress'],
       ),
+      color: serializer.fromJson<String?>(json['color']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       isSynced: serializer.fromJson<bool>(json['isSynced']),
@@ -363,6 +392,7 @@ class Objective extends DataClass implements Insertable<Objective> {
       'deadline': serializer.toJson<int>(deadline),
       'status': serializer.toJson<String>(status),
       'calculatedProgress': serializer.toJson<double>(calculatedProgress),
+      'color': serializer.toJson<String?>(color),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'isSynced': serializer.toJson<bool>(isSynced),
@@ -377,6 +407,7 @@ class Objective extends DataClass implements Insertable<Objective> {
     int? deadline,
     String? status,
     double? calculatedProgress,
+    Value<String?> color = const Value.absent(),
     DateTime? createdAt,
     DateTime? updatedAt,
     bool? isSynced,
@@ -388,6 +419,7 @@ class Objective extends DataClass implements Insertable<Objective> {
     deadline: deadline ?? this.deadline,
     status: status ?? this.status,
     calculatedProgress: calculatedProgress ?? this.calculatedProgress,
+    color: color.present ? color.value : this.color,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
     isSynced: isSynced ?? this.isSynced,
@@ -405,6 +437,7 @@ class Objective extends DataClass implements Insertable<Objective> {
       calculatedProgress: data.calculatedProgress.present
           ? data.calculatedProgress.value
           : this.calculatedProgress,
+      color: data.color.present ? data.color.value : this.color,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       isSynced: data.isSynced.present ? data.isSynced.value : this.isSynced,
@@ -421,6 +454,7 @@ class Objective extends DataClass implements Insertable<Objective> {
           ..write('deadline: $deadline, ')
           ..write('status: $status, ')
           ..write('calculatedProgress: $calculatedProgress, ')
+          ..write('color: $color, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('isSynced: $isSynced')
@@ -437,6 +471,7 @@ class Objective extends DataClass implements Insertable<Objective> {
     deadline,
     status,
     calculatedProgress,
+    color,
     createdAt,
     updatedAt,
     isSynced,
@@ -452,6 +487,7 @@ class Objective extends DataClass implements Insertable<Objective> {
           other.deadline == this.deadline &&
           other.status == this.status &&
           other.calculatedProgress == this.calculatedProgress &&
+          other.color == this.color &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
           other.isSynced == this.isSynced);
@@ -465,6 +501,7 @@ class ObjectivesCompanion extends UpdateCompanion<Objective> {
   final Value<int> deadline;
   final Value<String> status;
   final Value<double> calculatedProgress;
+  final Value<String?> color;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<bool> isSynced;
@@ -477,6 +514,7 @@ class ObjectivesCompanion extends UpdateCompanion<Objective> {
     this.deadline = const Value.absent(),
     this.status = const Value.absent(),
     this.calculatedProgress = const Value.absent(),
+    this.color = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.isSynced = const Value.absent(),
@@ -490,6 +528,7 @@ class ObjectivesCompanion extends UpdateCompanion<Objective> {
     required int deadline,
     this.status = const Value.absent(),
     this.calculatedProgress = const Value.absent(),
+    this.color = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.isSynced = const Value.absent(),
@@ -504,6 +543,7 @@ class ObjectivesCompanion extends UpdateCompanion<Objective> {
     Expression<int>? deadline,
     Expression<String>? status,
     Expression<double>? calculatedProgress,
+    Expression<String>? color,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<bool>? isSynced,
@@ -517,6 +557,7 @@ class ObjectivesCompanion extends UpdateCompanion<Objective> {
       if (deadline != null) 'deadline': deadline,
       if (status != null) 'status': status,
       if (calculatedProgress != null) 'calculated_progress': calculatedProgress,
+      if (color != null) 'color': color,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (isSynced != null) 'is_synced': isSynced,
@@ -532,6 +573,7 @@ class ObjectivesCompanion extends UpdateCompanion<Objective> {
     Value<int>? deadline,
     Value<String>? status,
     Value<double>? calculatedProgress,
+    Value<String?>? color,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
     Value<bool>? isSynced,
@@ -545,6 +587,7 @@ class ObjectivesCompanion extends UpdateCompanion<Objective> {
       deadline: deadline ?? this.deadline,
       status: status ?? this.status,
       calculatedProgress: calculatedProgress ?? this.calculatedProgress,
+      color: color ?? this.color,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       isSynced: isSynced ?? this.isSynced,
@@ -576,6 +619,9 @@ class ObjectivesCompanion extends UpdateCompanion<Objective> {
     if (calculatedProgress.present) {
       map['calculated_progress'] = Variable<double>(calculatedProgress.value);
     }
+    if (color.present) {
+      map['color'] = Variable<String>(color.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -601,6 +647,7 @@ class ObjectivesCompanion extends UpdateCompanion<Objective> {
           ..write('deadline: $deadline, ')
           ..write('status: $status, ')
           ..write('calculatedProgress: $calculatedProgress, ')
+          ..write('color: $color, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('isSynced: $isSynced, ')
@@ -4285,6 +4332,7 @@ typedef $$ObjectivesTableCreateCompanionBuilder =
       required int deadline,
       Value<String> status,
       Value<double> calculatedProgress,
+      Value<String?> color,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<bool> isSynced,
@@ -4299,6 +4347,7 @@ typedef $$ObjectivesTableUpdateCompanionBuilder =
       Value<int> deadline,
       Value<String> status,
       Value<double> calculatedProgress,
+      Value<String?> color,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<bool> isSynced,
@@ -4372,6 +4421,11 @@ class $$ObjectivesTableFilterComposer
 
   ColumnFilters<double> get calculatedProgress => $composableBuilder(
     column: $table.calculatedProgress,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get color => $composableBuilder(
+    column: $table.color,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4460,6 +4514,11 @@ class $$ObjectivesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get color => $composableBuilder(
+    column: $table.color,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -4509,6 +4568,9 @@ class $$ObjectivesTableAnnotationComposer
     column: $table.calculatedProgress,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get color =>
+      $composableBuilder(column: $table.color, builder: (column) => column);
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -4580,6 +4642,7 @@ class $$ObjectivesTableTableManager
                 Value<int> deadline = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<double> calculatedProgress = const Value.absent(),
+                Value<String?> color = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<bool> isSynced = const Value.absent(),
@@ -4592,6 +4655,7 @@ class $$ObjectivesTableTableManager
                 deadline: deadline,
                 status: status,
                 calculatedProgress: calculatedProgress,
+                color: color,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 isSynced: isSynced,
@@ -4606,6 +4670,7 @@ class $$ObjectivesTableTableManager
                 required int deadline,
                 Value<String> status = const Value.absent(),
                 Value<double> calculatedProgress = const Value.absent(),
+                Value<String?> color = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<bool> isSynced = const Value.absent(),
@@ -4618,6 +4683,7 @@ class $$ObjectivesTableTableManager
                 deadline: deadline,
                 status: status,
                 calculatedProgress: calculatedProgress,
+                color: color,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 isSynced: isSynced,

@@ -26,7 +26,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 6; // 升级版本号
+  int get schemaVersion => 7; // 升级版本号 - 添加 Objectives.color
 
   @override
   MigrationStrategy get migration => MigrationStrategy(

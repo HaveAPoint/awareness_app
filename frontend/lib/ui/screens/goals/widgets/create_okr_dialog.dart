@@ -10,11 +10,13 @@ class CreateOkrDialog extends StatefulWidget {
     List<Map<String, dynamic>> keyResults,
   )
   onSave;
+  final VoidCallback? onDelete; // 删除回调（仅编辑模式）
   final ObjectiveModel? initialData; // null = 创建模式, 非null = 编辑模式
 
   const CreateOkrDialog({
     super.key,
     required this.onSave,
+    this.onDelete,
     this.initialData,
   });
 
@@ -148,6 +150,34 @@ class _CreateOkrDialogState extends State<CreateOkrDialog> {
         krs,
       );
       Navigator.of(context).pop();
+    }
+  }
+
+  Future<void> _handleDelete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('确认删除'),
+        content: const Text(
+          '删除此目标后，其所有关键结果和历史数据都会被永久删除。\n\n确定要继续吗？',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      Navigator.of(context).pop(); // 关闭编辑对话框
+      widget.onDelete?.call();
     }
   }
 
@@ -357,6 +387,23 @@ class _CreateOkrDialogState extends State<CreateOkrDialog> {
                         minimumSize: const Size(double.infinity, 48),
                       ),
                     ),
+
+                    // 删除按钮（仅编辑模式）
+                    if (widget.initialData != null && widget.onDelete != null) ...[
+                      const SizedBox(height: 24),
+                      const Divider(),
+                      const SizedBox(height: 16),
+                      OutlinedButton.icon(
+                        onPressed: _handleDelete,
+                        icon: const Icon(Icons.delete_outline),
+                        label: const Text('删除此目标'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red,
+                          side: const BorderSide(color: Colors.red),
+                          minimumSize: const Size(double.infinity, 48),
+                        ),
+                      ),
+                    ],
 
                     const SizedBox(height: 32),
                   ],
