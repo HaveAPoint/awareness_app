@@ -7,6 +7,8 @@ class GoalCard extends StatelessWidget {
   final ObjectiveModel objective;
   final void Function(KeyResultModel kr)? onStartFocusForKr;
   final void Function(KeyResultModel kr)? onEditKr;
+  final void Function(KeyResultModel kr)? onCompleteKr;
+  final void Function(KeyResultModel kr)? onUncompleteKr; // 新增：取消完成回调
   final VoidCallback? onEdit; // 新增：整个目标的编辑回调
 
   const GoalCard({
@@ -14,6 +16,8 @@ class GoalCard extends StatelessWidget {
     required this.objective,
     this.onStartFocusForKr,
     this.onEditKr,
+    this.onCompleteKr,
+    this.onUncompleteKr,
     this.onEdit, // 新增
   });
 
@@ -68,6 +72,21 @@ class GoalCard extends StatelessWidget {
                 ],
               ),
 
+              // 描述（如有）
+              if (objective.description != null && objective.description!.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  objective.description!,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                    height: 1.4,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+
               const SizedBox(height: 24),
 
               // 2. Ghost Progress Bar
@@ -118,6 +137,12 @@ class GoalCard extends StatelessWidget {
                               ? () => onStartFocusForKr!(kr)
                               : null,
                           onEdit: onEditKr != null ? () => onEditKr!(kr) : null,
+                          onComplete: onCompleteKr != null
+                              ? () => onCompleteKr!(kr)
+                              : null,
+                          onUncomplete: onUncompleteKr != null
+                              ? () => onUncompleteKr!(kr)
+                              : null,
                         ),
                       ),
                     ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'data/database/database.dart';
 import 'logic/focus_session_state.dart';
 import 'ui/screens/dashboard/dashboard_page.dart';
@@ -14,7 +15,7 @@ void main() {
 
   // Initialize Database
   db = AppDatabase();
-  
+
   // Initialize Focus Session State
   focusSessionState = FocusSessionState();
 
@@ -29,6 +30,15 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: '觉知系统',
       debugShowCheckedModeBanner: false,
+      locale: const Locale('zh', 'CN'),
+      supportedLocales: const [
+        Locale('zh', 'CN'),
+      ],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: Colors.deepPurple,

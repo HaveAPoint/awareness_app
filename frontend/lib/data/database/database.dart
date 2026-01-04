@@ -131,14 +131,18 @@ class AppDatabase extends _$AppDatabase {
   /// 归档(archived)需要手动处理
   Future<void> autoCompleteExpiredObjectives() async {
     final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    
+
     // 查找所有已过期但仍是active状态的目标
-    final expiredObjectives = await (select(objectives)
-          ..where((t) => t.status.equals('active') & t.deadline.isSmallerThanValue(now)))
-        .get();
-    
+    final expiredObjectives =
+        await (select(objectives)..where(
+              (t) =>
+                  t.status.equals('active') &
+                  t.deadline.isSmallerThanValue(now),
+            ))
+            .get();
+
     if (expiredObjectives.isEmpty) return;
-    
+
     // 批量更新为completed状态
     for (final obj in expiredObjectives) {
       await (update(objectives)..where((t) => t.id.equals(obj.id))).write(
@@ -149,7 +153,7 @@ class AppDatabase extends _$AppDatabase {
         ),
       );
     }
-    
+
     debugPrint('[Database] 自动完成 ${expiredObjectives.length} 个过期目标');
   }
 
@@ -233,6 +237,29 @@ class AppDatabase extends _$AppDatabase {
         isSynced: const Value(false),
       ),
     );
+  }
+
+  /// 获取某个 KR 关联的所有番茄钟累计时间（小时）
+  /// 数据流: FocusSession -> Task -> KeyResult
+  Future<double> getKrActualHours(String krId) async {
+    // 使用 Drift 的查询构建器进行 JOIN 查询
+    final query = select(focusSessions).join([
+      innerJoin(tasks, tasks.id.equalsExp(focusSessions.taskId)),
+    ])
+      ..where(tasks.krId.equals(krId) &
+          focusSessions.type.equals('work') &
+          focusSessions.status.equals('completed'));
+
+    final results = await query.get();
+
+    // 计算总秒数
+    int totalSeconds = 0;
+    for (final row in results) {
+      totalSeconds += row.readTable(focusSessions).durationSeconds;
+    }
+
+    // 转换为小时
+    return totalSeconds / 3600.0;
   }
 
   // --- 应用设置：工作时长秒数 ---

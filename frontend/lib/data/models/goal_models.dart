@@ -11,12 +11,21 @@ class KeyResultModel {
   final double currentVal;
   final String? unit;
   final double weight;
+  final double actualHours; // 实际番茄钟累计小时数
 
   // 计算属性：进度百分比 (0.0 - 1.0)
+  // 如果 currentVal >= targetVal，说明已手动完成，返回 100%
+  // 否则基于番茄钟时间计算：actualHours / targetVal
   double get progress {
-    if (targetVal == 0) return 0.0;
-    return ((currentVal - startVal) / (targetVal - startVal)).clamp(0.0, 1.0);
+    // 已完成（currentVal >= targetVal）
+    if (currentVal >= targetVal && targetVal > 0) return 1.0;
+    // 基于番茄钟时间计算（targetVal 是预估小时数）
+    if (targetVal <= 0) return 0.0;
+    return (actualHours / targetVal).clamp(0.0, 1.0);
   }
+
+  // 是否已完成
+  bool get isCompleted => currentVal >= targetVal && targetVal > 0;
 
   const KeyResultModel({
     required this.id,
@@ -28,10 +37,11 @@ class KeyResultModel {
     required this.currentVal,
     this.unit,
     this.weight = 1.0,
+    this.actualHours = 0.0,
   });
 
   // 从数据库记录创建
-  factory KeyResultModel.fromDb(Map<String, dynamic> row) {
+  factory KeyResultModel.fromDb(Map<String, dynamic> row, {double actualHours = 0.0}) {
     return KeyResultModel(
       id: row['id'] as String,
       objectiveId: row['objectiveId'] as String,
@@ -42,6 +52,7 @@ class KeyResultModel {
       currentVal: (row['currentVal'] as num).toDouble(),
       unit: row['unit'] as String?,
       weight: (row['weight'] as num?)?.toDouble() ?? 1.0,
+      actualHours: actualHours,
     );
   }
 }

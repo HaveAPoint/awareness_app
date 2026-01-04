@@ -33,7 +33,8 @@ class FocusPage extends StatefulWidget {
   State<FocusPage> createState() => _FocusPageState();
 }
 
-class _FocusPageState extends State<FocusPage> with TickerProviderStateMixin {
+class _FocusPageState extends State<FocusPage>
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   // 逻辑控制器 - 改为可空，在数据加载后初始化
   FocusController? _timerController;
 
@@ -62,6 +63,7 @@ class _FocusPageState extends State<FocusPage> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _textController = TextEditingController();
     _inputFocus = FocusNode();
     _pulseController = AnimationController(
@@ -151,7 +153,22 @@ class _FocusPageState extends State<FocusPage> with TickerProviderStateMixin {
     _textController.dispose();
     _inputFocus.dispose();
     _breathController.dispose();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (_timerController == null) {
+      return;
+    }
+    if (state == AppLifecycleState.resumed) {
+      _timerController!.onAppResumed();
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.detached) {
+      _timerController!.onAppPaused();
+    }
   }
 
   @override

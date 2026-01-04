@@ -30,6 +30,7 @@ class FocusController extends ChangeNotifier {
   Timer? _timer;
   int _currentSeconds; // 核心变量：正数代表剩余时间，负数代表超时时间
   int _targetSeconds; // 记录本次设定的总时长，用于计算进度
+  DateTime? _targetTime; // 预计结束时刻，用于基于绝对时间计算倒计时
 
   int _workDuration; // 当前设定的工作时长
   int _restDuration; // 当前设定的休息时长
@@ -386,22 +387,14 @@ class FocusController extends ChangeNotifier {
     _stopTimer(); // 清除旧定时器
     _status = startStatus;
     _targetSeconds = duration;
+    _targetTime = DateTime.now().add(Duration(seconds: duration));
     _currentSeconds = duration;
     debugPrint(
       '[FocusController] 调用后: _targetSeconds=$_targetSeconds, _currentSeconds=$_currentSeconds',
     );
     notifyListeners();
 
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      _currentSeconds--; // 无论是倒计时还是正计时，数值都持续减小 (10 -> 0 -> -1 -> -2)
-
-      // 检查是否刚刚跨过 0 点
-      if (_currentSeconds == 0) {
-        _handleZeroCrossing();
-      }
-
-      notifyListeners();
-    });
+    _startTicker();
   }
 
   // 处理 0 点跨越逻辑（预结束方法）
@@ -423,6 +416,48 @@ class FocusController extends ChangeNotifier {
     // 注意：定时器不停止，继续运行
   }
 
+  int _calculateRemainingSeconds(DateTime targetTime) {
+    final diffMs = targetTime.difference(DateTime.now()).inMilliseconds;
+    if (diffMs >= 0) {
+      return (diffMs / 1000).ceil();
+    }
+    return (diffMs / 1000).floor();
+  }
+
+  void _updateCurrentSeconds({bool forceNotify = false}) {
+    if (_targetTime == null) return;
+
+    final previous = _currentSeconds;
+    final remaining = _calculateRemainingSeconds(_targetTime!);
+    _currentSeconds = remaining;
+
+    if (previous > 0 && remaining <= 0) {
+      _handleZeroCrossing();
+    }
+
+    if (forceNotify || remaining != previous) {
+      notifyListeners();
+    }
+  }
+
+  void _startTicker() {
+    _stopTimer();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      _updateCurrentSeconds();
+    });
+  }
+
+  void onAppResumed() {
+    if (!isActive || _targetTime == null) return;
+    _updateCurrentSeconds(forceNotify: true);
+    _startTicker();
+  }
+
+  void onAppPaused() {
+    if (!isActive) return;
+    _stopTimer();
+  }
+
   // ----------------------------------------------------------------
   // 停止/结束逻辑 (响应双击)
   // ----------------------------------------------------------------
@@ -430,6 +465,7 @@ class FocusController extends ChangeNotifier {
   // 停止工作模式
   void stopWork() {
     _stopTimer();
+    _targetTime = null;
 
     // 如果是在 extending 状态（工作超时正计时），双击后进入 restIdle 或 longRestIdle
     if (_status == FocusStatus.extending) {
@@ -469,6 +505,7 @@ class FocusController extends ChangeNotifier {
   // 停止休息模式 (包含你要求的逻辑分支)
   void stopRest() {
     _stopTimer();
+    _targetTime = null;
 
     // 如果是在 restExtending 状态（休息超时正计时），双击后进入 idle（工作空闲）
     if (_status == FocusStatus.restExtending) {
@@ -502,6 +539,7 @@ class FocusController extends ChangeNotifier {
   // 停止长休息模式
   void stopLongRest() {
     _stopTimer();
+    _targetTime = null;
 
     // 如果是在 longRestExtending 状态（长休息超时正计时），双击后进入 idle（工作空闲）
     if (_status == FocusStatus.longRestExtending) {
@@ -552,6 +590,7 @@ class FocusController extends ChangeNotifier {
   /// 重置计时器到初始状态
   void reset() {
     _stopTimer();
+    _targetTime = null;
     _status = FocusStatus.idle;
     _currentSeconds = _workDuration;
     _targetSeconds = _workDuration;
