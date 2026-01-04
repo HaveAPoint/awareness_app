@@ -17,7 +17,7 @@ class GoalRepository {
   }) async {
     // 先自动检查并更新过期目标
     await _db.autoCompleteExpiredObjectives();
-    
+
     var query = _db.select(_db.objectives);
 
     // 根据筛选条件添加 where 子句
@@ -179,6 +179,7 @@ class GoalRepository {
             title: krData['title'] as String,
             targetVal: krData['target'] as double,
             unit: krData['unit'] as String?,
+            weight: krData['weight'] as double?,
           );
           updatedKrIds.add(krId);
         } else {
@@ -188,6 +189,7 @@ class GoalRepository {
             title: krData['title'] as String,
             targetVal: krData['target'] as double,
             unit: krData['unit'] as String?,
+            weight: krData['weight'] as double? ?? 1.0,
           );
         }
       }
@@ -206,7 +208,7 @@ class GoalRepository {
 
   // --- Key Result Operations ---
 
-  /// 获取某个 Objective 的所有 KeyResults
+  /// 获取某个 Objective 的所有 KeyResults（包含番茄钟时间）
   Future<List<KeyResultModel>> _getKeyResultsForObjective(
     String objectiveId,
   ) async {
@@ -214,7 +216,13 @@ class GoalRepository {
       _db.keyResults,
     )..where((t) => t.objectiveId.equals(objectiveId))).get();
 
-    return krs.map((kr) => _keyResultFromDb(kr)).toList();
+    // 查询每个 KR 的实际番茄钟时间
+    final result = <KeyResultModel>[];
+    for (final kr in krs) {
+      final actualHours = await _db.getKrActualHours(kr.id);
+      result.add(_keyResultFromDb(kr, actualHours: actualHours));
+    }
+    return result;
   }
 
   /// 更新 KeyResult 的当前值（触发进度重算）
@@ -363,7 +371,7 @@ class GoalRepository {
     );
   }
 
-  KeyResultModel _keyResultFromDb(KeyResult kr) {
+  KeyResultModel _keyResultFromDb(KeyResult kr, {double actualHours = 0.0}) {
     return KeyResultModel(
       id: kr.id,
       objectiveId: kr.objectiveId,
@@ -374,6 +382,51 @@ class GoalRepository {
       currentVal: kr.currentVal,
       unit: kr.unit,
       weight: kr.weight,
+      actualHours: actualHours,
     );
+  }
+
+  /// 将 KeyResult 标记为完成（currentVal = targetVal）
+  Future<void> completeKeyResult(String krId) async {
+    // 获取 KR 信息
+    final kr = await (_db.select(
+      _db.keyResults,
+    )..where((t) => t.id.equals(krId))).getSingleOrNull();
+
+    if (kr == null) return;
+
+    // 设置 currentVal = targetVal
+    await (_db.update(_db.keyResults)..where((t) => t.id.equals(krId))).write(
+      KeyResultsCompanion(
+        currentVal: Value(kr.targetVal),
+        updatedAt: Value(DateTime.now()),
+        isSynced: const Value(false),
+      ),
+    );
+
+    // 重算 Objective 进度
+    await _recalculateObjectiveProgress(kr.objectiveId);
+  }
+
+  /// 取消 KeyResult 的完成状态（currentVal = 0，恢复为未完成）
+  Future<void> uncompleteKeyResult(String krId) async {
+    // 获取 KR 信息
+    final kr = await (_db.select(
+      _db.keyResults,
+    )..where((t) => t.id.equals(krId))).getSingleOrNull();
+
+    if (kr == null) return;
+
+    // 设置 currentVal = startVal (恢复初始值)
+    await (_db.update(_db.keyResults)..where((t) => t.id.equals(krId))).write(
+      KeyResultsCompanion(
+        currentVal: Value(kr.startVal),
+        updatedAt: Value(DateTime.now()),
+        isSynced: const Value(false),
+      ),
+    );
+
+    // 重算 Objective 进度
+    await _recalculateObjectiveProgress(kr.objectiveId);
   }
 }

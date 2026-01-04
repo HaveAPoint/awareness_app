@@ -122,8 +122,8 @@ class _GoalsPageState extends State<GoalsPage> {
                   'startVal': 0.0,
                   'targetVal': k['target'],
                   'currentVal': 0.0,
-                  'unit': k['unit'],
-                  'weight': 1.0,
+                  'unit': k['unit'] ?? '小时',
+                  'weight': k['weight'] ?? 1.0, // 使用归一化后的权重
                 };
               }).toList(),
             );
@@ -200,6 +200,8 @@ class _GoalsPageState extends State<GoalsPage> {
           objective: objective,
           onStartFocusForKr: (kr) => _startFocusWithKeyResult(objective, kr),
           onEditKr: (kr) => _editKeyResult(objective, kr),
+          onCompleteKr: (kr) => _completeKeyResult(kr),
+          onUncompleteKr: (kr) => _showUncompleteDialog(kr),
           onEdit: () => _editObjective(objective), // 新增：整个卡片的编辑回调
         );
       },
@@ -252,6 +254,70 @@ class _GoalsPageState extends State<GoalsPage> {
     debugPrint('编辑 KR: ${kr.title}');
   }
 
+  /// 长按触发：标记 KR 为完成
+  Future<void> _completeKeyResult(KeyResultModel kr) async {
+    try {
+      await _repository.completeKeyResult(kr.id);
+      await _loadObjectives();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${kr.title} 已完成')),
+        );
+      }
+    } catch (e) {
+      debugPrint('完成 KR 失败: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('操作失败: $e')),
+        );
+      }
+    }
+  }
+
+  /// 左滑已完成的KR触发：显示取消完成对话框
+  void _showUncompleteDialog(KeyResultModel kr) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('取消完成'),
+        content: Text('确定要取消「${kr.title}」的完成状态吗？\n取消后可以继续进行番茄钟。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _uncompleteKeyResult(kr);
+            },
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 取消 KR 完成状态
+  Future<void> _uncompleteKeyResult(KeyResultModel kr) async {
+    try {
+      await _repository.uncompleteKeyResult(kr.id);
+      await _loadObjectives();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${kr.title} 已恢复为进行中')),
+        );
+      }
+    } catch (e) {
+      debugPrint('取消完成 KR 失败: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('操作失败: $e')),
+        );
+      }
+    }
+  }
+
   /// 点击卡片触发：编辑整个 Objective
   void _editObjective(ObjectiveModel objective) {
     showModalBottomSheet(
@@ -261,6 +327,7 @@ class _GoalsPageState extends State<GoalsPage> {
       builder: (context) => CreateOkrDialog(
         initialData: objective, // 传入现有数据进入编辑模式
         onDelete: () => _deleteObjective(objective),
+        onArchive: () => _archiveObjective(objective),
         onSave: (title, description, deadline, krs) async {
           try {
             // 更新到数据库（事务处理）
@@ -312,6 +379,30 @@ class _GoalsPageState extends State<GoalsPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('删除失败: $e')),
+        );
+      }
+    }
+  }
+
+  /// 归档目标
+  Future<void> _archiveObjective(ObjectiveModel objective) async {
+    try {
+      // 归档目标（只改变状态字段）
+      await _repository.archiveObjective(objective.id);
+
+      // 重新加载列表
+      await _loadObjectives();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('目标已归档')),
+        );
+      }
+    } catch (e) {
+      debugPrint('归档目标失败: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('归档失败: $e')),
         );
       }
     }
